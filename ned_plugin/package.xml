@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package>
+  <name>ned_plugin</name>
+  <version>0.0.0</version>
+  <description>Reference system conversion from ENU to NED</description>
+
+  <maintainer email="eugenio.cuniato@gmail.com">Eugenio Cuniato</maintainer>
+
+  <license>BSD</license>
+
+  <author email="eugenio.cuniato@gmail.com">Eugenio Cuniato</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+
+  <export>
+  </export>
+</package>
