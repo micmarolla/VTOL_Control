@@ -12,6 +12,9 @@
   <arg name="verbose" default="false"/>
   <arg name="rvizconfig" default="$(find quad_control)/drone.rviz" />
 
+  <arg name="spawn_x" default="-6"/>
+  <arg name="spawn_y" default="-6"/>
+
   <env name="GAZEBO_MODEL_PATH" value="${GAZEBO_MODEL_PATH}:$(find rotors_gazebo)/models"/>
   <env name="GAZEBO_RESOURCE_PATH" value="${GAZEBO_RESOURCE_PATH}:$(find rotors_gazebo)/models"/>
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
@@ -26,6 +29,8 @@
     <include file="$(find rotors_gazebo)/launch/spawn_mav.launch">
       <arg name="mav_name" value="$(arg mav_name)" />
       <arg name="model" value="$(find rotors_description)/urdf/mav_generic_odometry_sensor.gazebo" />
+      <arg name="x" value="$(arg spawn_x)"/>
+      <arg name="y" value="$(arg spawn_x)"/>
       <arg name="enable_logging" value="$(arg enable_logging)" />
       <arg name="enable_ground_truth" value="$(arg enable_ground_truth)" />
       <arg name="log_file" value="$(arg log_file)"/>
