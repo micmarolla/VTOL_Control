@@ -40,8 +40,10 @@ else()
 endif()
 
 if(NOT DEFINED BUILD_OCTOMAP_PLUGIN)
-  message(STATUS "BUILD_OCTOMAP_PLUGIN variable not provided, setting to FALSE.")
-  set(BUILD_OCTOMAP_PLUGIN FALSE)
+  #message(STATUS "BUILD_OCTOMAP_PLUGIN variable not provided, setting to FALSE.")
+  #set(BUILD_OCTOMAP_PLUGIN FALSE)
+  message(STATUS "BUILD_OCTOMAP_PLUGIN variable not provided, setting to TRUE.")
+  set(BUILD_OCTOMAP_PLUGIN TRUE)
 endif()
 
 if(NOT DEFINED BUILD_OPTICAL_FLOW_PLUGIN)
