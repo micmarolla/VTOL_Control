@@ -14,12 +14,15 @@ include_directories(${Eigen_INCLUDE_DIRS})
 find_package(catkin REQUIRED COMPONENTS
   gazebo_msgs
   geometry_msgs
+  message_generation
+  message_runtime
+  nav_msgs
   roscpp
   roslib
-	tf
-  tf_conversions
+  std_msgs
   sensor_msgs
-	message_generation
+  tf
+  tf_conversions
 )
 
 
@@ -64,11 +67,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  2DAPPlanner.srv
+)
 
 ## Generate actions in the 'action' folder
 #add_action_files(
@@ -80,6 +82,8 @@ find_package(catkin REQUIRED COMPONENTS
 generate_messages(
    DEPENDENCIES
    std_msgs
+   geometry_msgs
+   nav_msgs
 #   actionlib_msgs
 )
 
