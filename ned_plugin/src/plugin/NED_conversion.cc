@@ -14,19 +14,32 @@ using namespace std;
 
 namespace gazebo
 {
+  /*
+   * NEDPlugin is a Gazebo world plugin that converts:
+   *  - odometry information, into NED frame
+   *  - wrench command, expressed in NED frame, into motor speed commands.
+   * NB: it uses GROUND_TRUTH odometry data.
+   */
   class NEDPlugin : public WorldPlugin
   {
-
-	private: ros::NodeHandle* _nh;
+	
   private:
+     ros::NodeHandle* _nh;
      ros::Publisher _odomNED_pub, _commandNED_pub;
      ros::Subscriber _odom_sub, _command_sub;
      Matrix4d _G;
+
+
   public:
+   /* Converts odometry data into NED frame. */
    void odom_cb( nav_msgs::OdometryConstPtr );
+   /* Convert wrench commands into propellers velocities, and apply them to the UAV */
    void command_cb( geometry_msgs::WrenchConstPtr );
+   /* Ensure that each squared propeller velocities is >= 0 */
    void correctW(Vector4d & w2);
-	 void Load(physics::WorldPtr _world, sdf::ElementPtr _sdf) {
+
+   /* Init plugin */
+   void Load(physics::WorldPtr _world, sdf::ElementPtr _sdf) {
 		_nh = new ros::NodeHandle();
 
     ROS_INFO("NED conversions plugin started!");
