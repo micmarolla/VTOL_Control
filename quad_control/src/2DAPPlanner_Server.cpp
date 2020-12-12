@@ -1,6 +1,7 @@
 #include "2DAPPlanner_Server.h"
 #include "nav_msgs/Path.h"
 #include <tf/tf.h>
+#include <cmath>
 
 2DAPPlanner_Server::2DAPPlanner_Server() : _nh("~"){
     // Retrieve params
@@ -63,11 +64,63 @@ geometry_msgs::Pose 2DAPPlanner_Server::_eulerIntegration(geometry_msgs::Pose q,
 }
 
 
-Vector6d 2DAPPlanner_Server::_computeForce(Vector6d e){
-    Vector6d ft;
-    // ...
-    return ft;
+Vector6d 2DAPPlanner_Server::_computeForce(nav_msgs::OccupancyGrid &grid, geometry_msgs::Pose q, Vector6d e){
+    Vector6d fa, fr;
+
+    /* Attractive potentials */
+    if (e.norm() <= 1)
+        // Paraboloid
+        fa = this->_ka * e;
+    else
+        // Conical
+        fa = this->_ka * e / e.norm();
+    
+    /* Repulsive potentials */
+    shared_ptr<int8[]> submap = _getNeighbourhood(grid, Vector3d(q.position.x, q.position.y, q.position.z));
+    fr = _computeRepulsiveForce(submap);
+
+    return fa + fr;
 }
+
+
+std::shared_ptr<int8[]> 2DAPPlanner_Server::_getNeighbourhood(nav_msgs::OccupancyGrid &grid, Vector3d pos){
+    // Retrieve robot position in map
+    int rx = ceil((pos[0] - grid.info.origin.position.x) / grid.info.resolution);
+    int ry = ceil((pos[y] - grid.info.origin.position.y) / grid.info.resolution);
+
+    // Neighbourhood span (in cells)
+    int cellSpan = ceil(this->_eta * grid.info.resolution);
+
+    // Get neighbourhood corners
+    int x1 = rx-cellSpan, x2 = rx+cellSpan;
+    int y1 = ry-cellSpan, y2 = ry+cellSpan;
+
+    // Fix pos if near margins
+    if (x1 < 0)                 x1 = 0;
+    if (x2 > grid.info.width)   x2 = grid.info.width;
+    if (y1 < 0)                 y1 = 0;
+    if (y2 > grid.info.height)  y2 = grid.info.height;
+
+    // Retrieve data
+    int size = (x2-x1+1) * (y2-y1+1);
+    std::shared_ptr<int8[]> submap(new int8[size]);
+    for (int i=0; i < size; ++i){
+        int x = x1 + i % (x2-x1);
+        int y = y1 + i / (y2-y1);
+        if (x == rx && y == ry)
+            submap[i] = -1;
+        else
+            submap[i] = grid.data[x + y*grid.info.width];
+    }
+
+    return submap;
+}
+
+
+Vector6d 2DAPPlanner_Server::_computeRepulsiveForce(shared_ptr<int8[]> submap){
+    
+}
+
 
 
 bool 2DAPPlanner_Server::plan(quad_control::2DAPPlanner::Request &req, quad_control::2DAPPlanner::Response &res){
@@ -82,8 +135,8 @@ bool 2DAPPlanner_Server::plan(quad_control::2DAPPlanner::Request &req, quad_cont
 
     while (!done){
         // Compute error, force, integrate and add to path
-        err = _computeError(q, re.qg);
-        ft = _computeForce(err);
+        err = _computeError(q, req.qg);
+        ft = _computeForce(req.map, q, err);
         q = _eulerIntegration(q, ft);
         path.poses.push_back(q);
 

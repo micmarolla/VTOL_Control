@@ -11,6 +11,7 @@
 #include "ros/ros.h"
 #include "quad_control/2DAPPlanner.h"
 #include "geometry_msgs/Pose.h"
+#include "nav_msgs/OccupancyGrid.h"
 #include <Eigen/Dense>
 
 typedef Eigen::Matrix<double, 6, 1> Vector6d;
@@ -26,21 +27,25 @@ class 2DAPPlanner_Server{
         double _p_eps;      // if position error <= eps, it is assumed error = 0
         double _o_eps;      // if orientation error <= eps, it is assumed error = 0
         double _sampleTime;
-        
 
-        // Compute next configuration using Euler integration
-        geometry_msgs::Pose _eulerIntegration(geometry_msgs::Pose q, Vector6d ft);
         
         // Compute position and orientation (RPY) error
         Vector6d _computeError(geometry_msgs::Pose q, geometry_msgs::Pose qd);
 
+        // Compute next configuration using Euler integration
+        geometry_msgs::Pose _eulerIntegration(geometry_msgs::Pose q, Vector6d ft);
+
         /*
          * Compute the virtual forces applied on the robot, via the artificial
          * potentials method.
-         * Parameters:
-         *  - e: error vector
          */
-        Vector6d _computeForce(Vector6d e);
+        Vector6d _computeForce(nav_msgs::OccupancyGrid &grid, geometry_msgs::Pose q, Vector6d e);
+        
+        // -1 in cell occupied by the center of the robot
+        std::shared_ptr<int8[]> _getNeighbourhood(nav_msgs::OccupancyGrid &grid, Vector3d pos);
+        
+        //
+        Vector6d _computeRepulsiveForce(shared_ptr<int8[]> submap);
 
 
     public:
