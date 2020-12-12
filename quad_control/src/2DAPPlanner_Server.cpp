@@ -16,11 +16,29 @@
 }
 
 
-geometry_msgs::Pose 2DAPPlanner_Server::_eulerIntegration(geometry_msgs::Pose q){
+Vector6d 2DAPPlanner_Server::_computeError(geometry_msgs::Pose q, geometry_msgs::Pose qd){
+    Vector6d e;
+    
+    // Position
+    e << q.position.x - qd.position.x, q.position.y - qd.position.y, q.position.z - qd.position.z;
+    
+    // Orientation: from quaternion to RPY
+    double r,p,y, rd,pd,yd;
+    tf::Quaternion(q.orientation.x, q.orientation.y, q.orientation.z, q.orientation.w).getRPY(r,p,y);
+    tf::Quaternion(qd.orientation.x, qd.orientation.y, qd.orientation.z, qd.orientation.w).getRPY(r,p,y);
+
+    e << r - rd, p - pd, y - yd;
+
+    return e;
+}
+
+
+
+geometry_msgs::Pose 2DAPPlanner_Server::_eulerIntegration(geometry_msgs::Pose q, Vector6d ft){
     /* Position */
-    q.position.x = q.position.x + this->_sampleTime * ft;
-    q.position.y = q.position.y + this->_sampleTime * ft;
-    q.position.z = q.position.z + this->_sampleTime * ft;
+    q.position.x = q.position.x + this->_sampleTime * ft[0];
+    q.position.y = q.position.y + this->_sampleTime * ft[1];
+    q.position.z = q.position.z + this->_sampleTime * ft[2];
 
     /* Orientation */
 
@@ -29,9 +47,9 @@ geometry_msgs::Pose 2DAPPlanner_Server::_eulerIntegration(geometry_msgs::Pose q)
     tf::Quaternion(q.orientation.x, q.orientation.y, q.orientation.z, q.orientation.w).getRPY(r,p,y);
 
     // Compute integration
-    r = r + this->_sampleTime * ft;
-    p = p + this->_sampleTime * ft;
-    y = y + this->_sampleTime * ft;
+    r = r + this->_sampleTime * ft[3];
+    p = p + this->_sampleTime * ft[4];
+    y = y + this->_sampleTime * ft[5];
 
     // Go back to quaternions
     tf::Quaternion quat;
@@ -40,12 +58,15 @@ geometry_msgs::Pose 2DAPPlanner_Server::_eulerIntegration(geometry_msgs::Pose q)
     q.orientation.y = quat.y;
     q.orientation.z = quat.z;
     q.orientation.w = quat.w;
+
+    return q;    
 }
 
 
-double 2DAPPlanner_Server::computeForce(geometry_msgs::Pose q, geometry_msgs::Pose qg){
+Vector6d 2DAPPlanner_Server::_computeForce(Vector6d e){
+    Vector6d ft;
     // ...
-    return 0;
+    return ft;
 }
 
 
@@ -56,26 +77,19 @@ bool 2DAPPlanner_Server::plan(quad_control::2DAPPlanner::Request &req, quad_cont
     path.header.frame_id = "worldNED";
 
     geometry_msgs::Pose q = req.qs;
+    Vector6d err, ft;
     bool done = false;
 
     while (!done){
-        // Compute force, integrate and add to path
-        double ft = computeForce(q, req.qg);
-        q = this->_eulerIntegration(q);
+        // Compute error, force, integrate and add to path
+        err = _computeError(q, re.qg);
+        ft = _computeForce(err);
+        q = _eulerIntegration(q, ft);
         path.poses.push_back(q);
 
         // Check if goal has been reached
-        double pErrorNorm = sqrt(pow(q.position.x - qg.position.x, 2) +
-            pow(q.position.y - qg.position.y, 2) +
-            pow(q.position.z - qg.position.z, 2));
-
-        double r,p,y;
-        double rd,pd,yd;
-        tf::Quaternion(q.orientation.x, q.orientation.y, q.orientation.z, q.orientation.w).getRPY(r,p,y);
-        tf::Quaternion(qg.orientation.x, qg.orientation.y, qg.orientation.z, qg.orientation.w).getRPY(rd,pd,yd);
-        double oErrorNorm = sqrt(pow(r-rd, 2) + pow(p-pd, 2) + pow(y-yd, 2));
-
-        done = (pErrorNorm <= this->_p_eps) && (oErrorNorm <= this->_o_eps);
+        done = (Eigen::Vector3d(err[0],err[1],err[2]).norm() <= this->_p_eps)
+                && (Eigen::Vector3d(err[3],err[4],err[5]).norm() <= this->_o_eps);
     }
 
     return true;

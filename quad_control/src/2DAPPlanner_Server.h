@@ -11,6 +11,9 @@
 #include "ros/ros.h"
 #include "quad_control/2DAPPlanner.h"
 #include "geometry_msgs/Pose.h"
+#include <Eigen/Dense>
+
+typedef Eigen::Matrix<double, 6, 1> Vector6d;
 
 class 2DAPPlanner_Server{
 
@@ -26,20 +29,22 @@ class 2DAPPlanner_Server{
         
 
         // Compute next configuration using Euler integration
-        geometry_msgs::Pose _eulerIntegration(geometry_msgs::Pose q);
-
-
-    public:
-        2DAPPlanner_Server();
+        geometry_msgs::Pose _eulerIntegration(geometry_msgs::Pose q, Vector6d ft);
+        
+        // Compute position and orientation (RPY) error
+        Vector6d _computeError(geometry_msgs::Pose q, geometry_msgs::Pose qd);
 
         /*
          * Compute the virtual forces applied on the robot, via the artificial
          * potentials method.
          * Parameters:
-         *  - q: current robot configuration
-         *  - qg: goal configuration
+         *  - e: error vector
          */
-        double computeForce(geometry_msgs::Pose q, geometry_msgs::Pose qg);
+        Vector6d _computeForce(Vector6d e);
+
+
+    public:
+        2DAPPlanner_Server();
 
         /*
          * Plan the trajectory. Return true if the planning was successfull;
