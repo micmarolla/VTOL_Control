@@ -3,6 +3,7 @@
 #include "nav_msgs/OccupancyGrid.h"
 #include "quad_control/APPlanner2D.h"
 #include "APPlanner2D_Server.h"
+#include <iostream>
 
 nav_msgs::OccupancyGrid testMap;
 bool ready = false;
@@ -10,9 +11,11 @@ bool done = false;
 
 
 void map_cb(nav_msgs::OccupancyGridConstPtr data){
-    testMap = *data;
-    ROS_INFO("MAP READY!!!");
-    ready = true;
+    if(!ready){
+        testMap = *data;
+        ROS_INFO("MAP READY!!!");
+        ready = true;
+    }
 }
 
 
@@ -21,13 +24,21 @@ int main(int argc, char **argv){
     ros::NodeHandle nh;
     ros::Rate rate(1);
     ros::ServiceClient client = nh.serviceClient<quad_control::APPlanner2D>("/planning_srv");
-    ros::Subscriber sub = nh.subscribe("/map", 0, &map_cb);
+    ros::Subscriber sub = nh.subscribe("/map", 1, &map_cb);
     ros::Publisher pub = nh.advertise<nav_msgs::Path>("/plannedPath", 0);
     
     quad_control::APPlanner2D srv;
-    geometry_msgs::Pose qs, qg;
-    qs.position.x = qs.position.y = qs.position.z = 0;
-    qg.position.x = 5; qg.position.y = 10; qg.position.z = 3;
+    srv.request.qs.position.x = srv.request.qs.position.y =
+        srv.request.qs.position.z = 0;
+    srv.request.qs.orientation.x = srv.request.qs.orientation.y =
+        srv.request.qs.orientation.z = 0;
+    srv.request.qs.orientation.w = 1;
+    srv.request.qg.position.x = 5;
+    srv.request.qg.position.y = 10;
+    srv.request.qg.position.z = 3;
+    srv.request.qg.orientation.x = srv.request.qg.orientation.y =
+        srv.request.qg.orientation.z = 0;
+    srv.request.qg.orientation.w = 1;
 
     nav_msgs::Path path;
 
@@ -38,8 +49,11 @@ int main(int argc, char **argv){
             if(!done){
                 srv.request.map = testMap;
                 if(client.call(srv)){
+                    cout << "PATH PLANNED RECEIVED! Size: " << srv.response.path.poses.size() << endl;
                     path = srv.response.path;
                     done = true;
+                    auto last = srv.response.path.poses.back().pose.position;
+                    cout << "Last position: " << last.x << ", " << last.y << ", " << last.z << endl;
                 }
             }
             pub.publish(path);

@@ -4,15 +4,16 @@
 //#include <tf/transform_datatypes.h>
 #include <tf/LinearMath/Matrix3x3.h>
 #include <cmath>
+#include <iostream>
 
 using namespace std;
 
 APPlanner2D_Server::APPlanner2D_Server() : _nh("~"){
     // Retrieve params
-    _ka         = _nh.param<double>("ka", 1);
-    _kr         = _nh.param<double>("kr", 1);
-    _eta        = _nh.param<double>("eta", 1.5);
-    _gamma      = _nh.param<double>("gamma", 2);
+    _ka         = _nh.param<double>("ka", 1.0);
+    _kr         = _nh.param<double>("kr", 1.0);
+    _eta        = _nh.param<double>("eta", 2.0);
+    _gamma      = _nh.param<double>("gamma", 2.0);
     _p_eps      = _nh.param<double>("p_eps", 0.01);
     _o_eps      = _nh.param<double>("o_eps", 0.01);
     _sampleTime = _nh.param<double>("sampleTime", 0.01);
@@ -25,14 +26,18 @@ Vector6d APPlanner2D_Server::_computeError(geometry_msgs::Pose q, geometry_msgs:
     Vector6d e;
     
     // Position
-    e << q.position.x - qd.position.x, q.position.y - qd.position.y, q.position.z - qd.position.z;
+    e[0] = qd.position.x - q.position.x;
+    e[1] = qd.position.y - q.position.y;
+    e[2] = qd.position.z - q.position.z;
     
     // Orientation: from quaternion to RPY
     double r,p,y, rd,pd,yd;
     tf::Matrix3x3(tf::Quaternion(q.orientation.x, q.orientation.y, q.orientation.z, q.orientation.w)).getRPY(r,p,y);
     tf::Matrix3x3(tf::Quaternion(qd.orientation.x, qd.orientation.y, qd.orientation.z, qd.orientation.w)).getRPY(r,p,y);
 
-    e << r - rd, p - pd, y - yd;
+    e[3] = rd - r;
+    e[4] = pd - p;
+    e[5] = yd - y;
 
     return e;
 }
@@ -89,10 +94,13 @@ Vector6d APPlanner2D_Server::_computeForce(nav_msgs::OccupancyGrid &grid, geomet
 std::shared_ptr<int8_t[]> APPlanner2D_Server::_getNeighbourhood(nav_msgs::OccupancyGrid &grid, Eigen::Vector3d pos, int &w, int &h, int &x, int &y){
     // Retrieve robot position in map
     int rx = ceil((pos[0] - grid.info.origin.position.x) / grid.info.resolution);
-    int ry = ceil((pos[y] - grid.info.origin.position.y) / grid.info.resolution);
+    int ry = ceil((pos[1] - grid.info.origin.position.y) / grid.info.resolution);
+
+    //cout << "Robot position: " << rx << ", " << ry << endl;
 
     // Neighbourhood span (in cells)
-    int cellSpan = ceil(this->_eta * grid.info.resolution);
+    int cellSpan = ceil(this->_eta / grid.info.resolution);
+    //cout << "cellSpan: " << cellSpan << endl;
 
     // Get neighbourhood corners
     int x1 = rx-cellSpan, x2 = rx+cellSpan;
@@ -104,13 +112,15 @@ std::shared_ptr<int8_t[]> APPlanner2D_Server::_getNeighbourhood(nav_msgs::Occupa
     if (y1 < 0)                 y1 = 0;
     if (y2 > grid.info.height)  y2 = grid.info.height;
 
+    //cout << "Submap corners: ("<<x1<<","<<y1<<"), ("<<x2<<","<<y2<<")" << endl;
+
     // Retrieve data
     int size = (x2-x1+1) * (y2-y1+1);
     std::shared_ptr<int8_t[]> submap(new int8_t[size]);
     for (int i=0; i < size; ++i){
         int _x = x1 + i % (x2-x1);
         int _y = y1 + i / (y2-y1);
-        submap[i] = grid.data[x + y*grid.info.width];
+        submap[i] = grid.data[_x + _y*grid.info.width];
     }
 
     // Robot position [cells] in submap
@@ -137,9 +147,8 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_cont
     ROS_INFO("PLANNING REQUEST RECEIVED");
 
     // Build path msg
-    nav_msgs::Path path;
-    path.header.stamp = ros::Time::now();
-    path.header.frame_id = "worldNED";
+    res.path.header.stamp = ros::Time::now();
+    res.path.header.frame_id = "worldNED";
 
     geometry_msgs::PoseStamped q;
     q.pose = req.qs;
@@ -147,15 +156,21 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_cont
     bool done = false;
 
     while (!done){
+
         // Compute error, force, integrate and add to path
         err = _computeError(q.pose, req.qg);
+        //cout << "Error: " << err << endl; ///
+
         ft = _computeForce(req.map, q.pose, err);
+        //cout << "Force: " << ft << endl; ///
+
         q.pose = _eulerIntegration(q.pose, ft);
+        //cout << "New position: " << q.pose.position.x << ", " << q.pose.position.y << ", " << q.pose.position.z << endl;
         
         q.header.stamp = ros::Time::now();
         q.header.frame_id = "worldNED";
 
-        path.poses.push_back(q);
+        res.path.poses.push_back(q);
 
         // Check if goal has been reached
         done = (Eigen::Vector3d(err[0],err[1],err[2]).norm() <= this->_p_eps)
@@ -171,7 +186,6 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_cont
 int main(int argc, char **argv){
     ros::init(argc, argv, "2d_planner");
     APPlanner2D_Server server;
-    ROS_INFO_NAMED("APPlanner2D_Server", "Ready.");
     ros::spin();
     return 0;
 }

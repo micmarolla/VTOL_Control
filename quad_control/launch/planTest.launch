@@ -36,7 +36,6 @@
       <arg name="log_file" value="$(arg log_file)"/>
     </include>
 
-
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
 
@@ -44,13 +43,17 @@
     <node pkg="tf" type="static_transform_publisher" name="wNED" args="0 0 0 1.57079 0 3.14159  world worldNED  100"/>
    <node pkg="tf" type="static_transform_publisher" name="bodyNED" args="0 0 0 1.57079 0 3.14159  hummingbird/base_link hummingbird/base_linkNED  100"/>
 
-    <node name="map_server" pkg="map_server" type="map_server" args="$(find quad_control)/worlds/maps/arena.yaml" output="screen"/>
-    <node pkg="quad_control" type="APPlanner2D_Server" name="APPlanner2D_Server" output="screen"/>
-    <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen"/>
-
-
-   <arg name="node_start_delay" default="5.0" />
    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)"  />
 
   </group>
+
+
+    <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen"/>
+    <node pkg="quad_control" type="APPlanner2D_Server" name="APPlanner2D_Server" output="screen">
+        <param name="ka" type="double" value="10.0"/>
+    </node>
+    <node name="map_server" pkg="map_server" type="map_server" args="$(find quad_control)/worlds/maps/arena.yaml" output="screen">
+        <param name="frame_id" type="string" value="worldNED"/>
+    </node>
+
 </launch>
