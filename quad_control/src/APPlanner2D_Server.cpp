@@ -1,9 +1,13 @@
-#include "2DAPPlanner_Server.h"
+#include "APPlanner2D_Server.h"
 #include "nav_msgs/Path.h"
 #include <tf/tf.h>
+//#include <tf/transform_datatypes.h>
+#include <tf/LinearMath/Matrix3x3.h>
 #include <cmath>
 
-2DAPPlanner_Server::2DAPPlanner_Server() : _nh("~"){
+using namespace std;
+
+APPlanner2D_Server::APPlanner2D_Server() : _nh("~"){
     // Retrieve params
     _ka         = _nh.param<double>("ka", 1);
     _kr         = _nh.param<double>("kr", 1);
@@ -13,11 +17,11 @@
     _o_eps      = _nh.param<double>("o_eps", 0.01);
     _sampleTime = _nh.param<double>("sampleTime", 0.01);
 
-    _server = _nh.advertiseService("planning_srv", 2DAPPlanner_Server::plan);
+    _server = _nh.advertiseService("/planning_srv", &APPlanner2D_Server::plan, this);
 }
 
 
-Vector6d 2DAPPlanner_Server::_computeError(geometry_msgs::Pose q, geometry_msgs::Pose qd){
+Vector6d APPlanner2D_Server::_computeError(geometry_msgs::Pose q, geometry_msgs::Pose qd){
     Vector6d e;
     
     // Position
@@ -25,8 +29,8 @@ Vector6d 2DAPPlanner_Server::_computeError(geometry_msgs::Pose q, geometry_msgs:
     
     // Orientation: from quaternion to RPY
     double r,p,y, rd,pd,yd;
-    tf::Quaternion(q.orientation.x, q.orientation.y, q.orientation.z, q.orientation.w).getRPY(r,p,y);
-    tf::Quaternion(qd.orientation.x, qd.orientation.y, qd.orientation.z, qd.orientation.w).getRPY(r,p,y);
+    tf::Matrix3x3(tf::Quaternion(q.orientation.x, q.orientation.y, q.orientation.z, q.orientation.w)).getRPY(r,p,y);
+    tf::Matrix3x3(tf::Quaternion(qd.orientation.x, qd.orientation.y, qd.orientation.z, qd.orientation.w)).getRPY(r,p,y);
 
     e << r - rd, p - pd, y - yd;
 
@@ -35,7 +39,7 @@ Vector6d 2DAPPlanner_Server::_computeError(geometry_msgs::Pose q, geometry_msgs:
 
 
 
-geometry_msgs::Pose 2DAPPlanner_Server::_eulerIntegration(geometry_msgs::Pose q, Vector6d ft){
+geometry_msgs::Pose APPlanner2D_Server::_eulerIntegration(geometry_msgs::Pose q, Vector6d ft){
     /* Position */
     q.position.x = q.position.x + this->_sampleTime * ft[0];
     q.position.y = q.position.y + this->_sampleTime * ft[1];
@@ -45,7 +49,7 @@ geometry_msgs::Pose 2DAPPlanner_Server::_eulerIntegration(geometry_msgs::Pose q,
 
     // Retrieve RPY angles
     double r,p,y;
-    tf::Quaternion(q.orientation.x, q.orientation.y, q.orientation.z, q.orientation.w).getRPY(r,p,y);
+    tf::Matrix3x3(tf::Quaternion(q.orientation.x, q.orientation.y, q.orientation.z, q.orientation.w)).getRPY(r,p,y);
 
     // Compute integration
     r = r + this->_sampleTime * ft[3];
@@ -55,16 +59,13 @@ geometry_msgs::Pose 2DAPPlanner_Server::_eulerIntegration(geometry_msgs::Pose q,
     // Go back to quaternions
     tf::Quaternion quat;
     quat.setRPY(r,p,y);
-    q.orientation.x = quat.x;
-    q.orientation.y = quat.y;
-    q.orientation.z = quat.z;
-    q.orientation.w = quat.w;
+    tf::quaternionTFToMsg(quat, q.orientation);
 
     return q;    
 }
 
 
-Vector6d 2DAPPlanner_Server::_computeForce(nav_msgs::OccupancyGrid &grid, geometry_msgs::Pose q, Vector6d e){
+Vector6d APPlanner2D_Server::_computeForce(nav_msgs::OccupancyGrid &grid, geometry_msgs::Pose q, Vector6d e){
     Vector6d fa, fr;
 
     /* Attractive potentials */
@@ -76,14 +77,16 @@ Vector6d 2DAPPlanner_Server::_computeForce(nav_msgs::OccupancyGrid &grid, geomet
         fa = this->_ka * e / e.norm();
     
     /* Repulsive potentials */
-    shared_ptr<int8[]> submap = _getNeighbourhood(grid, Vector3d(q.position.x, q.position.y, q.position.z));
-    fr = _computeRepulsiveForce(submap);
+    int subW, subH, x, y;
+    shared_ptr<int8_t[]> submap = _getNeighbourhood(grid, Eigen::Vector3d(q.position.x, q.position.y, q.position.z), subW, subH, x, y);
+    fr = _computeRepulsiveForce(submap, subW, subH, x, y);
+    submap.reset();
 
     return fa + fr;
 }
 
 
-std::shared_ptr<int8[]> 2DAPPlanner_Server::_getNeighbourhood(nav_msgs::OccupancyGrid &grid, Vector3d pos){
+std::shared_ptr<int8_t[]> APPlanner2D_Server::_getNeighbourhood(nav_msgs::OccupancyGrid &grid, Eigen::Vector3d pos, int &w, int &h, int &x, int &y){
     // Retrieve robot position in map
     int rx = ceil((pos[0] - grid.info.origin.position.x) / grid.info.resolution);
     int ry = ceil((pos[y] - grid.info.origin.position.y) / grid.info.resolution);
@@ -103,41 +106,55 @@ std::shared_ptr<int8[]> 2DAPPlanner_Server::_getNeighbourhood(nav_msgs::Occupanc
 
     // Retrieve data
     int size = (x2-x1+1) * (y2-y1+1);
-    std::shared_ptr<int8[]> submap(new int8[size]);
+    std::shared_ptr<int8_t[]> submap(new int8_t[size]);
     for (int i=0; i < size; ++i){
-        int x = x1 + i % (x2-x1);
-        int y = y1 + i / (y2-y1);
-        if (x == rx && y == ry)
-            submap[i] = -1;
-        else
-            submap[i] = grid.data[x + y*grid.info.width];
+        int _x = x1 + i % (x2-x1);
+        int _y = y1 + i / (y2-y1);
+        submap[i] = grid.data[x + y*grid.info.width];
     }
+
+    // Robot position [cells] in submap
+    x = rx - x1;
+    y = ry - y1;
 
     return submap;
 }
 
 
-Vector6d 2DAPPlanner_Server::_computeRepulsiveForce(shared_ptr<int8[]> submap){
+Vector6d APPlanner2D_Server::_computeRepulsiveForce(shared_ptr<int8_t[]> submap, int w, int h, int rx, int ry){
+    Vector6d fr;
     
+    // ...
+
+    fr[0] = fr[1] = 0; // This is only for test
+    fr[2] = fr[3] = fr[4] = fr[5] = 0;
+    return fr;
 }
 
 
 
-bool 2DAPPlanner_Server::plan(quad_control::2DAPPlanner::Request &req, quad_control::2DAPPlanner::Response &res){
+bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_control::APPlanner2D::Response &res){
+    ROS_INFO("PLANNING REQUEST RECEIVED");
+
     // Build path msg
     nav_msgs::Path path;
     path.header.stamp = ros::Time::now();
     path.header.frame_id = "worldNED";
 
-    geometry_msgs::Pose q = req.qs;
+    geometry_msgs::PoseStamped q;
+    q.pose = req.qs;
     Vector6d err, ft;
     bool done = false;
 
     while (!done){
         // Compute error, force, integrate and add to path
-        err = _computeError(q, req.qg);
-        ft = _computeForce(req.map, q, err);
-        q = _eulerIntegration(q, ft);
+        err = _computeError(q.pose, req.qg);
+        ft = _computeForce(req.map, q.pose, err);
+        q.pose = _eulerIntegration(q.pose, ft);
+        
+        q.header.stamp = ros::Time::now();
+        q.header.frame_id = "worldNED";
+
         path.poses.push_back(q);
 
         // Check if goal has been reached
@@ -145,14 +162,16 @@ bool 2DAPPlanner_Server::plan(quad_control::2DAPPlanner::Request &req, quad_cont
                 && (Eigen::Vector3d(err[3],err[4],err[5]).norm() <= this->_o_eps);
     }
 
+    ROS_INFO("PLANNING DONE");
+
     return true;
 }
 
 
 int main(int argc, char **argv){
     ros::init(argc, argv, "2d_planner");
-    2DAPPlanner_Server server;
-    ROS_INFO_NAMED("2DAPPlanner_Server", "Ready.");
+    APPlanner2D_Server server;
+    ROS_INFO_NAMED("APPlanner2D_Server", "Ready.");
     ros::spin();
     return 0;
 }

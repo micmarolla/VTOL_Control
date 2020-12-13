@@ -69,7 +69,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
-  2DAPPlanner.srv
+  APPlanner2D.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -148,3 +148,9 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
+
+add_executable(APPlanner2D_Server src/APPlanner2D_Server.cpp)
+target_link_libraries(APPlanner2D_Server ${catkin_LIBRARIES})
+
+add_executable(plannerTest src/plannerTest.cpp)
+target_link_libraries(plannerTest ${catkin_LIBRARIES})

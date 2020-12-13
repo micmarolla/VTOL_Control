@@ -1,22 +1,24 @@
 /*
- * 2DAPPlanner provides a service that realizes path planning via artificial
+ * APPlanner2D provides a service that realizes path planning via artificial
  * potentials method, for a 2D known environment.
  * The planning is realized considering the virtual force acting on the robot
  * as a velocity, and the integration is realized through Euler method.
  * It is assumed that each C-Obstacle has the same range of influence, and all
  * the repulsive force gains k_(r,i) are the same.
- * Corresponding .srv file is 2DAPPlanner.srv
+ * Corresponding .srv file is APPlanner2D.srv
  */
 
 #include "ros/ros.h"
-#include "quad_control/2DAPPlanner.h"
+#include "quad_control/APPlanner2D.h"
 #include "geometry_msgs/Pose.h"
 #include "nav_msgs/OccupancyGrid.h"
 #include <Eigen/Dense>
 
+using namespace std;
+
 typedef Eigen::Matrix<double, 6, 1> Vector6d;
 
-class 2DAPPlanner_Server{
+class APPlanner2D_Server{
 
     private:
         ros::NodeHandle _nh;
@@ -41,20 +43,20 @@ class 2DAPPlanner_Server{
          */
         Vector6d _computeForce(nav_msgs::OccupancyGrid &grid, geometry_msgs::Pose q, Vector6d e);
         
-        // -1 in cell occupied by the center of the robot
-        std::shared_ptr<int8[]> _getNeighbourhood(nav_msgs::OccupancyGrid &grid, Vector3d pos);
+        //
+        std::shared_ptr<int8_t[]> _getNeighbourhood(nav_msgs::OccupancyGrid &grid, Eigen::Vector3d pos, int &w, int &h, int &x, int &y);
         
         //
-        Vector6d _computeRepulsiveForce(shared_ptr<int8[]> submap);
+        Vector6d _computeRepulsiveForce(shared_ptr<int8_t[]> submap, int w, int h, int rx, int ry);
 
 
     public:
-        2DAPPlanner_Server();
+        APPlanner2D_Server();
 
         /*
          * Plan the trajectory. Return true if the planning was successfull;
          * otherwise, print an error message and return false.
          */
-        bool plan(quad_control::2DAPPlanner::Request &req, quad_control::2DAPPlanner::Response &res);
+        bool plan(quad_control::APPlanner2D::Request &req, quad_control::APPlanner2D::Response &res);
 
 };
