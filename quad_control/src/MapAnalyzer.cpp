@@ -56,6 +56,11 @@ void MapAnalyzer::_fillTree(Chunk *root, int index, int w, int h){
 }
 
 
+void MapAnalyzer::analyze(nav_msgs::OccupancyGrid &grid){
+    this->analyze(&grid.data[0], grid.info.width, grid.info.height);
+}
+
+
 void MapAnalyzer::analyze(int8_t *map, int w, int h){
     this->_map = map;
 

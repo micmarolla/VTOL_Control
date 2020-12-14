@@ -8,11 +8,15 @@
  * Corresponding .srv file is APPlanner2D.srv
  */
 
+#ifndef _APPLANNER2D_SERVER_
+#define _APPLANNER2D_SERVER_
+
 #include "ros/ros.h"
 #include "quad_control/APPlanner2D.h"
 #include "geometry_msgs/Pose.h"
 #include "nav_msgs/OccupancyGrid.h"
 #include <Eigen/Dense>
+#include "MapAnalyzer.h"
 
 using namespace std;
 
@@ -31,6 +35,7 @@ class APPlanner2D_Server{
         double _sampleTime;
         nav_msgs::OccupancyGrid _map;
         bool _mapReady;
+        MapAnalyzer _mapAnalyzer;
 
         
         // Compute position and orientation (RPY) error
@@ -43,13 +48,13 @@ class APPlanner2D_Server{
          * Compute the virtual forces applied on the robot, via the artificial
          * potentials method.
          */
-        Vector6d _computeForce(nav_msgs::OccupancyGrid &grid, geometry_msgs::Pose q, Vector6d e);
+        Vector6d _computeForce(geometry_msgs::Pose q, Vector6d e);
         
         //
         std::shared_ptr<int8_t[]> _getNeighbourhood(nav_msgs::OccupancyGrid &grid, Eigen::Vector3d pos, int &w, int &h, int &x, int &y);
         
         //
-        Vector6d _computeRepulsiveForce(shared_ptr<int8_t[]> submap, int w, int h, int rx, int ry);
+        Vector6d _computeRepulsiveForce(/*shared_ptr<int8_t[]> submap, int w, int h,*/ int rx, int ry);
 
 
     public:
@@ -64,3 +69,5 @@ class APPlanner2D_Server{
         bool plan(quad_control::APPlanner2D::Request &req, quad_control::APPlanner2D::Response &res);
 
 };
+
+#endif

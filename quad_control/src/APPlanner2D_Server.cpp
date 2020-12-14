@@ -1,9 +1,11 @@
 #include "APPlanner2D_Server.h"
+#include <cmath>
+#include <iostream>
+#include <vector>
 #include "nav_msgs/Path.h"
 #include <tf/tf.h>
 #include <tf/LinearMath/Matrix3x3.h>
-#include <cmath>
-#include <iostream>
+#include "MapAnalyzer.h"
 
 using namespace std;
 
@@ -13,8 +15,8 @@ APPlanner2D_Server::APPlanner2D_Server() : _nh("~"){
     _kr         = _nh.param<double>("kr", 1.0);
     _eta        = _nh.param<double>("eta", 2.0);
     _gamma      = _nh.param<double>("gamma", 2.0);
-    _p_eps      = _nh.param<double>("p_eps", 0.01);
-    _o_eps      = _nh.param<double>("o_eps", 0.01);
+    _p_eps      = _nh.param<double>("p_eps", 0.001);
+    _o_eps      = _nh.param<double>("o_eps", 0.001);
     _sampleTime = _nh.param<double>("sampleTime", 0.01);
 
     _mapReady = false;
@@ -25,6 +27,7 @@ APPlanner2D_Server::APPlanner2D_Server() : _nh("~"){
 
 void APPlanner2D_Server::setMap(nav_msgs::OccupancyGrid &map){
     this->_map = map;
+    this->_mapAnalyzer.analyze(map);
     this->_mapReady = true;
 }
 
@@ -77,7 +80,7 @@ geometry_msgs::Pose APPlanner2D_Server::_eulerIntegration(geometry_msgs::Pose q,
 }
 
 
-Vector6d APPlanner2D_Server::_computeForce(nav_msgs::OccupancyGrid &grid, geometry_msgs::Pose q, Vector6d e){
+Vector6d APPlanner2D_Server::_computeForce(geometry_msgs::Pose q, Vector6d e){
     Vector6d fa, fr;
 
     /* Attractive potentials */
@@ -89,21 +92,21 @@ Vector6d APPlanner2D_Server::_computeForce(nav_msgs::OccupancyGrid &grid, geomet
         fa = this->_ka * e / e.norm();
     
     /* Repulsive potentials */
-    int subW, subH, x, y;
-    shared_ptr<int8_t[]> submap = _getNeighbourhood(grid,
+    /*int subW, subH, x, y;
+    shared_ptr<int8_t[]> submap = _getNeighbourhood(this->_map,
         Eigen::Vector3d(q.position.x, q.position.y, q.position.z),
-        subW, subH, x, y);
-    fr = _computeRepulsiveForce(submap, subW, subH, x, y);
-    submap.reset();
+        subW, subH, x, y);*/
+    fr = _computeRepulsiveForce(/*submap, subW, subH,*/ q.position.x, q.position.y);
+    //submap.reset();
 
     return fa + fr;
 }
 
 
-std::shared_ptr<int8_t[]> APPlanner2D_Server::_getNeighbourhood(nav_msgs::OccupancyGrid &grid, Eigen::Vector3d pos, int &w, int &h, int &x, int &y){
+/*std::shared_ptr<int8_t[]> APPlanner2D_Server::_getNeighbourhood(Eigen::Vector3d pos, int &w, int &h, int &x, int &y){
     // Retrieve robot position in map
-    int rx = ceil((pos[0] - grid.info.origin.position.x) / grid.info.resolution);
-    int ry = ceil((pos[1] - grid.info.origin.position.y) / grid.info.resolution);
+    int rx = ceil((pos[0] - _map.info.origin.position.x) / _map.info.resolution);
+    int ry = ceil((pos[1] - _map.info.origin.position.y) / _map.info.resolution);
 
     // Neighbourhood span (in cells)
     int cellSpan = ceil(this->_eta / grid.info.resolution);
@@ -133,19 +136,31 @@ std::shared_ptr<int8_t[]> APPlanner2D_Server::_getNeighbourhood(nav_msgs::Occupa
     y = ry - y1;
 
     return submap;
-}
+}*/
 
 
-Vector6d APPlanner2D_Server::_computeRepulsiveForce(shared_ptr<int8_t[]> submap, int w, int h, int rx, int ry){
+Vector6d APPlanner2D_Server::_computeRepulsiveForce(/*shared_ptr<int8_t[]> submap, int w, int h,*/ int rx, int ry){
     Vector6d fr;
-    
-    // ...
+    fr << 0,0,0,0,0,0;
+    double fri_mod = 0;
+    Eigen::Vector2d fri;
 
-    fr[0] = fr[1] = 0; // This is only for test
-    fr[2] = fr[3] = fr[4] = fr[5] = 0;
+    // For each chunk, considering the minimum-distance point from the robot...
+    vector<Chunk*> obstacles = this->_mapAnalyzer.getObjAtMinDist(rx, ry);
+    for (auto obj : obstacles){
+        if (obj->dist2 > pow(this->_eta,2))
+            continue;
+
+        // ... compute repulsive force
+        fri_mod = (_kr / obj->dist2) * pow(1/sqrt(obj->dist2) - 1/_eta, _gamma - 1);
+        fri = fri_mod * Eigen::Vector2d(rx - obj->x, ry - obj->y).normalized();
+    
+        fr[0] += fri[0];
+        fr[1] += fri[1];
+    }
+
     return fr;
 }
-
 
 
 bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_control::APPlanner2D::Response &res){
@@ -153,7 +168,7 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_cont
 
     // Update map
     if(!this->_mapReady) // If no map is present
-        this->_map = req.map;
+        this->setMap(req.map);
 
     // Build path msg
     res.path.header.stamp = ros::Time::now();
@@ -165,10 +180,9 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_cont
     bool done = false;
 
     while (!done){
-
         // Compute error, force, integrate and add to path
         err = _computeError(q.pose, req.qg);
-        ft = _computeForce(this->_map, q.pose, err);
+        ft = _computeForce(q.pose, err);
         q.pose = _eulerIntegration(q.pose, ft);
         
         q.header.stamp = ros::Time::now();

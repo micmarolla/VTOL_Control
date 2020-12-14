@@ -5,8 +5,12 @@
  * down).
  */
 
+#ifndef _MAP_ANALYZER_
+#define _MAP_ANALYZER_
+
 #include <cstdint>
 #include <vector>
+#include "nav_msgs/OccupancyGrid.h"
 
 using namespace std;
 
@@ -32,6 +36,9 @@ public:
     ~MapAnalyzer();
 
     void analyze(int8_t *map, int w, int h);
+    void analyze(nav_msgs::OccupancyGrid &grid);
     vector<Chunk*> getObjAtMinDist(int rx, int ry);
     
 };
+
+#endif
