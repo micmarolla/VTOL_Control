@@ -29,6 +29,8 @@ class APPlanner2D_Server{
         double _p_eps;      // if position error <= eps, it is assumed error = 0
         double _o_eps;      // if orientation error <= eps, it is assumed error = 0
         double _sampleTime;
+        nav_msgs::OccupancyGrid _map;
+        bool _mapReady;
 
         
         // Compute position and orientation (RPY) error
@@ -52,6 +54,8 @@ class APPlanner2D_Server{
 
     public:
         APPlanner2D_Server();
+
+        void setMap(nav_msgs::OccupancyGrid &map);
 
         /*
          * Plan the trajectory. Return true if the planning was successfull;

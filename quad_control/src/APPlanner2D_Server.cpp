@@ -1,7 +1,6 @@
 #include "APPlanner2D_Server.h"
 #include "nav_msgs/Path.h"
 #include <tf/tf.h>
-//#include <tf/transform_datatypes.h>
 #include <tf/LinearMath/Matrix3x3.h>
 #include <cmath>
 #include <iostream>
@@ -18,7 +17,15 @@ APPlanner2D_Server::APPlanner2D_Server() : _nh("~"){
     _o_eps      = _nh.param<double>("o_eps", 0.01);
     _sampleTime = _nh.param<double>("sampleTime", 0.01);
 
+    _mapReady = false;
+
     _server = _nh.advertiseService("/planning_srv", &APPlanner2D_Server::plan, this);
+}
+
+
+void APPlanner2D_Server::setMap(nav_msgs::OccupancyGrid &map){
+    this->_map = map;
+    this->_mapReady = true;
 }
 
 
@@ -83,7 +90,9 @@ Vector6d APPlanner2D_Server::_computeForce(nav_msgs::OccupancyGrid &grid, geomet
     
     /* Repulsive potentials */
     int subW, subH, x, y;
-    shared_ptr<int8_t[]> submap = _getNeighbourhood(grid, Eigen::Vector3d(q.position.x, q.position.y, q.position.z), subW, subH, x, y);
+    shared_ptr<int8_t[]> submap = _getNeighbourhood(grid,
+        Eigen::Vector3d(q.position.x, q.position.y, q.position.z),
+        subW, subH, x, y);
     fr = _computeRepulsiveForce(submap, subW, subH, x, y);
     submap.reset();
 
@@ -95,8 +104,6 @@ std::shared_ptr<int8_t[]> APPlanner2D_Server::_getNeighbourhood(nav_msgs::Occupa
     // Retrieve robot position in map
     int rx = ceil((pos[0] - grid.info.origin.position.x) / grid.info.resolution);
     int ry = ceil((pos[1] - grid.info.origin.position.y) / grid.info.resolution);
-
-    //cout << "Robot position: " << rx << ", " << ry << endl;
 
     // Neighbourhood span (in cells)
     int cellSpan = ceil(this->_eta / grid.info.resolution);
@@ -111,8 +118,6 @@ std::shared_ptr<int8_t[]> APPlanner2D_Server::_getNeighbourhood(nav_msgs::Occupa
     if (x2 > grid.info.width)   x2 = grid.info.width;
     if (y1 < 0)                 y1 = 0;
     if (y2 > grid.info.height)  y2 = grid.info.height;
-
-    //cout << "Submap corners: ("<<x1<<","<<y1<<"), ("<<x2<<","<<y2<<")" << endl;
 
     // Retrieve data
     int size = (x2-x1+1) * (y2-y1+1);
@@ -144,7 +149,11 @@ Vector6d APPlanner2D_Server::_computeRepulsiveForce(shared_ptr<int8_t[]> submap,
 
 
 bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_control::APPlanner2D::Response &res){
-    ROS_INFO("PLANNING REQUEST RECEIVED");
+    ROS_INFO("APPlanner_2D: path planning requested.");
+
+    // Update map
+    if(!this->_mapReady) // If no map is present
+        this->_map = req.map;
 
     // Build path msg
     res.path.header.stamp = ros::Time::now();
@@ -159,13 +168,8 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_cont
 
         // Compute error, force, integrate and add to path
         err = _computeError(q.pose, req.qg);
-        //cout << "Error: " << err << endl; ///
-
-        ft = _computeForce(req.map, q.pose, err);
-        //cout << "Force: " << ft << endl; ///
-
+        ft = _computeForce(this->_map, q.pose, err);
         q.pose = _eulerIntegration(q.pose, ft);
-        //cout << "New position: " << q.pose.position.x << ", " << q.pose.position.y << ", " << q.pose.position.z << endl;
         
         q.header.stamp = ros::Time::now();
         q.header.frame_id = "worldNED";
@@ -176,8 +180,8 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_cont
         done = (Eigen::Vector3d(err[0],err[1],err[2]).norm() <= this->_p_eps)
                 && (Eigen::Vector3d(err[3],err[4],err[5]).norm() <= this->_o_eps);
     }
-
-    ROS_INFO("PLANNING DONE");
+    
+    ROS_INFO("APPlanner_2D: path planning successfully completed.");
 
     return true;
 }

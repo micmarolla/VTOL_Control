@@ -3,7 +3,6 @@
 #include "nav_msgs/OccupancyGrid.h"
 #include "quad_control/APPlanner2D.h"
 #include "APPlanner2D_Server.h"
-#include <iostream>
 
 nav_msgs::OccupancyGrid testMap;
 bool ready = false;
@@ -13,7 +12,6 @@ bool done = false;
 void map_cb(nav_msgs::OccupancyGridConstPtr data){
     if(!ready){
         testMap = *data;
-        ROS_INFO("MAP READY!!!");
         ready = true;
     }
 }
@@ -42,24 +40,20 @@ int main(int argc, char **argv){
 
     nav_msgs::Path path;
 
-    ROS_INFO("WAITING FOR MAP...");
-
     while(ros::ok()){
         if(ready){
             if(!done){
                 srv.request.map = testMap;
                 if(client.call(srv)){
-                    cout << "PATH PLANNED RECEIVED! Size: " << srv.response.path.poses.size() << endl;
                     path = srv.response.path;
                     done = true;
                     auto last = srv.response.path.poses.back().pose.position;
-                    cout << "Last position: " << last.x << ", " << last.y << ", " << last.z << endl;
                 }
             }
             pub.publish(path);
         }
         rate.sleep();
-        ros::spinOnce();    
+        ros::spinOnce(); 
     }
 
     return 0;

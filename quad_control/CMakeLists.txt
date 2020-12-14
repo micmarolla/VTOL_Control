@@ -149,7 +149,7 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 
-add_executable(APPlanner2D_Server src/APPlanner2D_Server.cpp)
+add_executable(APPlanner2D_Server src/APPlanner2D_Server.cpp src/MapAnalyzer.cpp)
 target_link_libraries(APPlanner2D_Server ${catkin_LIBRARIES})
 
 add_executable(plannerTest src/plannerTest.cpp)
