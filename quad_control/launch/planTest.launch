@@ -50,17 +50,18 @@
 
     <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen">
         <param name="startX" type="double" value="-6.0"/>
-        <param name="startY" type="double" value="-6.0"/>
+        <param name="startY" type="double" value="3.0"/>
         <param name="startZ" type="double" value="0.0"/>
-        <param name="endX"   type="double" value="-5.5"/>
-        <param name="endY"   type="double" value="0.0"/>
+        <param name="endX"   type="double" value="6.0"/>
+        <param name="endY"   type="double" value="6.0"/>
         <param name="endZ"   type="double" value="0.0"/>
     </node>
 
     <node pkg="quad_control" type="APPlanner2D_Server" name="APPlanner2D_Server" output="screen">
-        <param name="eta"   type="double" value="1.0"/>
-        <param name="ka"    type="double" value="10.0"/>
-        <param name="kr"    type="double" value="10.0"/>
+        <param name="sampleTime"    type="double"   value="0.01"/>
+        <param name="eta"           type="double"   value="1.0"/>
+        <param name="ka"            type="double"   value="0.5"/>
+        <param name="kr"            type="double"   value="0.5"/>
     </node>
 
     <node name="map_server" pkg="map_server" type="map_server" args="$(find quad_control)/worlds/maps/arena.yaml" output="screen">

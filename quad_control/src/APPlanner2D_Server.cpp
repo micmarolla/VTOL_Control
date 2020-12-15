@@ -42,8 +42,10 @@ Vector6d APPlanner2D_Server::_computeError(geometry_msgs::Pose q, geometry_msgs:
     
     // Orientation: from quaternion to RPY
     double r,p,y, rd,pd,yd;
-    tf::Matrix3x3(tf::Quaternion(q.orientation.x, q.orientation.y, q.orientation.z, q.orientation.w)).getRPY(r,p,y);
-    tf::Matrix3x3(tf::Quaternion(qd.orientation.x, qd.orientation.y, qd.orientation.z, qd.orientation.w)).getRPY(rd,pd,yd);
+    tf::Matrix3x3(tf::Quaternion(q.orientation.x, q.orientation.y,
+        q.orientation.z, q.orientation.w)).getRPY(r,p,y);
+    tf::Matrix3x3(tf::Quaternion(qd.orientation.x, qd.orientation.y,
+        qd.orientation.z, qd.orientation.w)).getRPY(rd,pd,yd);
 
     e[3] = rd - r;
     e[4] = pd - p;
@@ -54,7 +56,9 @@ Vector6d APPlanner2D_Server::_computeError(geometry_msgs::Pose q, geometry_msgs:
 
 
 
-geometry_msgs::Pose APPlanner2D_Server::_eulerIntegration(geometry_msgs::Pose q, Vector6d ft){
+geometry_msgs::Pose APPlanner2D_Server::_eulerIntegration(geometry_msgs::Pose q,
+        Vector6d ft){
+
     /* Position */
     q.position.x = q.position.x + this->_sampleTime * ft[0];
     q.position.y = q.position.y + this->_sampleTime * ft[1];
@@ -64,7 +68,8 @@ geometry_msgs::Pose APPlanner2D_Server::_eulerIntegration(geometry_msgs::Pose q,
 
     // Retrieve RPY angles
     double r,p,y;
-    tf::Matrix3x3(tf::Quaternion(q.orientation.x, q.orientation.y, q.orientation.z, q.orientation.w)).getRPY(r,p,y);
+    tf::Matrix3x3(tf::Quaternion(q.orientation.x, q.orientation.y,
+        q.orientation.z, q.orientation.w)).getRPY(r,p,y);
 
     // Compute integration
     r = r + this->_sampleTime * ft[3];
@@ -92,68 +97,27 @@ Vector6d APPlanner2D_Server::_computeForce(geometry_msgs::Pose q, Vector6d e){
         fa = this->_ka * e / e.norm();
     
     /* Repulsive potentials */
-    /*int subW, subH, x, y;
-    shared_ptr<int8_t[]> submap = _getNeighbourhood(this->_map,
-        Eigen::Vector3d(q.position.x, q.position.y, q.position.z),
-        subW, subH, x, y);*/
-    //fr = _computeRepulsiveForce(/*submap, subW, subH,*/ q.position.x, q.position.y);
-    //submap.reset();
-
     fr = _computeRepulsiveForce(q.position.x, q.position.y);
 
     return fa + fr;
 }
 
 
-/*std::shared_ptr<int8_t[]> APPlanner2D_Server::_getNeighbourhood(Eigen::Vector3d pos, int &w, int &h, int &x, int &y){
-    // Retrieve robot position in map
-    int rx = ceil((pos[0] - _map.info.origin.position.x) / _map.info.resolution);
-    int ry = ceil((pos[1] - _map.info.origin.position.y) / _map.info.resolution);
-
-    // Neighbourhood span (in cells)
-    int cellSpan = ceil(this->_eta / grid.info.resolution);
-    //cout << "cellSpan: " << cellSpan << endl;
-
-    // Get neighbourhood corners
-    int x1 = rx-cellSpan, x2 = rx+cellSpan;
-    int y1 = ry-cellSpan, y2 = ry+cellSpan;
-
-    // Fix pos if near margins
-    if (x1 < 0)                 x1 = 0;
-    if (x2 > grid.info.width)   x2 = grid.info.width;
-    if (y1 < 0)                 y1 = 0;
-    if (y2 > grid.info.height)  y2 = grid.info.height;
-
-    // Retrieve data
-    int size = (x2-x1+1) * (y2-y1+1);
-    std::shared_ptr<int8_t[]> submap(new int8_t[size]);
-    for (int i=0; i < size; ++i){
-        int _x = x1 + i % (x2-x1);
-        int _y = y1 + i / (y2-y1);
-        submap[i] = grid.data[_x + _y*grid.info.width];
-    }
-
-    // Robot position [cells] in submap
-    x = rx - x1;
-    y = ry - y1;
-
-    return submap;
-}*/
-
-
-Vector6d APPlanner2D_Server::_computeRepulsiveForce(/*shared_ptr<int8_t[]> submap, int w, int h,*/ double rx, double ry){
+Vector6d APPlanner2D_Server::_computeRepulsiveForce(double rx, double ry){
     Vector6d fr;
     fr << 0,0,0,0,0,0;
     double fri_mod = 0;
     Eigen::Vector2d fri;
 
     // Retrieve robot coordinates in the map cell reference
-    int rxCell = (rx - this->_map.info.origin.position.x) / this->_map.info.resolution; /////
-    int ryCell = (ry - this->_map.info.origin.position.y) / this->_map.info.resolution;; /////
+    int rxCell = (rx - this->_map.info.origin.position.x) / this->_map.info.resolution;
+    int ryCell = (ry - this->_map.info.origin.position.y) / this->_map.info.resolution;
 
     // For each chunk, considering the minimum-distance point from the robot...
     vector<Chunk*> obstacles = this->_mapAnalyzer.getObjAtMinDist(rxCell, ryCell);
     for (auto obj : obstacles){
+
+        obj->dist2 *= pow(this->_map.info.resolution, 2); // convert to [meters^2]
         if (obj->dist2 > pow(this->_eta,2))
             continue;
 
@@ -169,11 +133,13 @@ Vector6d APPlanner2D_Server::_computeRepulsiveForce(/*shared_ptr<int8_t[]> subma
 }
 
 
-bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_control::APPlanner2D::Response &res){
+bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req,
+        quad_control::APPlanner2D::Response &res){
+
     ROS_INFO("APPlanner_2D: path planning requested.");
 
-    // Update map
-    if(!this->_mapReady) // If no map is present
+     // If no map is present, or the current map if updated
+    if(!this->_mapReady || (req.map.info.width > 0 && req.map.info.height > 0))
         this->setMap(req.map);
 
     // Build path msg

@@ -8,6 +8,7 @@ Panels:
         - /Axes1
         - /Axes2
         - /RobotModel1
+        - /Path1
       Splitter Ratio: 0.5147058963775635
     Tree Height: 755
   - Class: rviz/Selection
@@ -132,7 +133,7 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
-      Color: 25; 255; 0
+      Color: 239; 41; 41
       Enabled: true
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
@@ -190,25 +191,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 20.138891220092773
+      Distance: 16.20115852355957
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.5655933022499084
-        Y: -4.309250831604004
-        Z: 0.007547974586486816
+        X: 0.23481734097003937
+        Y: -3.485598564147949
+        Z: 2.745173215866089
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5097973346710205
+      Pitch: 0.5047975778579712
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.643581867218018
+      Yaw: 4.7485833168029785
     Saved: ~
 Window Geometry:
   Displays:

@@ -1,12 +1,9 @@
 #include "MapAnalyzer.h"
 #include <cmath>
-#include <sstream>
-#include "ros/console.h"
 
 MapAnalyzer::MapAnalyzer(){
     this->_map = 0;
     this->_visited = 0;
-    this->_resolution = 1;
 }
 
 
@@ -60,20 +57,20 @@ void MapAnalyzer::_fillTree(Chunk *root, int index, int w, int h){
 
 
 void MapAnalyzer::analyze(nav_msgs::OccupancyGrid &grid){
-    this->analyze(&grid.data[0], grid.info.width, grid.info.height, grid.info.resolution);
+    this->analyze(&grid.data[0], grid.info.width, grid.info.height);
 }
 
 
-void MapAnalyzer::analyze(int8_t *map, int w, int h, double resolution){
+void MapAnalyzer::analyze(int8_t *map, int w, int h){
     this->_map = map;
-    this->_resolution = resolution;
+    int size = w*h;
 
+    // Clear chunks
     for (auto chunk : this->_chunks)
         delete chunk;
     this->_chunks.clear();
 
-    int size = w*h;
-
+    // Clear visited
     delete this->_visited;
     this->_visited = new bool[size];
     for (int i=0; i<size; ++i)
@@ -83,6 +80,7 @@ void MapAnalyzer::analyze(int8_t *map, int w, int h, double resolution){
     for (int r=h-1; r>=0; --r){
         for (int c=0; c < w; ++c){
             int i = r*w + c;
+
             if (this->_map[i] < 50 || this->_visited[i]){
                 this->_visited[i] = true;
                 continue;
@@ -106,18 +104,21 @@ Chunk* MapAnalyzer::_computeChunkDist(Chunk *chunk, int rx, int ry){
 
     Chunk *best = chunk;
     Chunk *temp = 0;
-    chunk->dist2 = pow(chunk->x - rx, 2) + pow(chunk->y - ry, 2); // [cell^2]
-    chunk->dist2 *= pow(_resolution, 2);    // Convert in meters^2
+    chunk->dist2 = pow(chunk->x - rx, 2) + pow(chunk->y - ry, 2);
     
     if(chunk->left){
         temp = _computeChunkDist(chunk->left, rx, ry);
         if(temp->dist2 < best->dist2)
             best = temp;
-    }if(chunk->right){
+    }
+
+    if(chunk->right){
         temp = _computeChunkDist(chunk->right, rx, ry);
         if(temp->dist2 < best->dist2)
             best = temp;
-    }if(chunk->down){
+    }
+
+    if(chunk->down){
         temp = _computeChunkDist(chunk->down, rx, ry);
         if(temp->dist2 < best->dist2)
             best = temp;
