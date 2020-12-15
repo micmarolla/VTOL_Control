@@ -142,6 +142,13 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req,
     if(!this->_mapReady || (req.map.info.width > 0 && req.map.info.height > 0))
         this->setMap(req.map);
 
+    // Check that repulsive forces in q_goal are null
+    Vector6d fr_g = _computeRepulsiveForce(req.qg.position.x, req.qg.position.y);
+    if(fr_g[0] != 0 || fr_g[1] != 0){
+        ROS_ERROR("Repulsive forces in goal configuration are not null. Planning is not possible");
+        return false;
+    }
+
     // Build path msg
     res.path.header.stamp = ros::Time::now();
     res.path.header.frame_id = "world";
