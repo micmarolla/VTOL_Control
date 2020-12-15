@@ -13,7 +13,7 @@ APPlanner2D_Server::APPlanner2D_Server() : _nh("~"){
     // Retrieve params
     _ka         = _nh.param<double>("ka", 1.0);
     _kr         = _nh.param<double>("kr", 1.0);
-    _eta        = _nh.param<double>("eta", 2.0);
+    _eta        = _nh.param<double>("eta", 1.0);
     _gamma      = _nh.param<double>("gamma", 2.0);
     _p_eps      = _nh.param<double>("p_eps", 0.001);
     _o_eps      = _nh.param<double>("o_eps", 0.001);
@@ -43,7 +43,7 @@ Vector6d APPlanner2D_Server::_computeError(geometry_msgs::Pose q, geometry_msgs:
     // Orientation: from quaternion to RPY
     double r,p,y, rd,pd,yd;
     tf::Matrix3x3(tf::Quaternion(q.orientation.x, q.orientation.y, q.orientation.z, q.orientation.w)).getRPY(r,p,y);
-    tf::Matrix3x3(tf::Quaternion(qd.orientation.x, qd.orientation.y, qd.orientation.z, qd.orientation.w)).getRPY(r,p,y);
+    tf::Matrix3x3(tf::Quaternion(qd.orientation.x, qd.orientation.y, qd.orientation.z, qd.orientation.w)).getRPY(rd,pd,yd);
 
     e[3] = rd - r;
     e[4] = pd - p;
@@ -96,8 +96,10 @@ Vector6d APPlanner2D_Server::_computeForce(geometry_msgs::Pose q, Vector6d e){
     shared_ptr<int8_t[]> submap = _getNeighbourhood(this->_map,
         Eigen::Vector3d(q.position.x, q.position.y, q.position.z),
         subW, subH, x, y);*/
-    fr = _computeRepulsiveForce(/*submap, subW, subH,*/ q.position.x, q.position.y);
+    //fr = _computeRepulsiveForce(/*submap, subW, subH,*/ q.position.x, q.position.y);
     //submap.reset();
+
+    fr = _computeRepulsiveForce(q.position.x, q.position.y);
 
     return fa + fr;
 }
@@ -139,21 +141,25 @@ Vector6d APPlanner2D_Server::_computeForce(geometry_msgs::Pose q, Vector6d e){
 }*/
 
 
-Vector6d APPlanner2D_Server::_computeRepulsiveForce(/*shared_ptr<int8_t[]> submap, int w, int h,*/ int rx, int ry){
+Vector6d APPlanner2D_Server::_computeRepulsiveForce(/*shared_ptr<int8_t[]> submap, int w, int h,*/ double rx, double ry){
     Vector6d fr;
     fr << 0,0,0,0,0,0;
     double fri_mod = 0;
     Eigen::Vector2d fri;
 
+    // Retrieve robot coordinates in the map cell reference
+    int rxCell = (rx - this->_map.info.origin.position.x) / this->_map.info.resolution; /////
+    int ryCell = (ry - this->_map.info.origin.position.y) / this->_map.info.resolution;; /////
+
     // For each chunk, considering the minimum-distance point from the robot...
-    vector<Chunk*> obstacles = this->_mapAnalyzer.getObjAtMinDist(rx, ry);
+    vector<Chunk*> obstacles = this->_mapAnalyzer.getObjAtMinDist(rxCell, ryCell);
     for (auto obj : obstacles){
         if (obj->dist2 > pow(this->_eta,2))
             continue;
 
         // ... compute repulsive force
         fri_mod = (_kr / obj->dist2) * pow(1/sqrt(obj->dist2) - 1/_eta, _gamma - 1);
-        fri = fri_mod * Eigen::Vector2d(rx - obj->x, ry - obj->y).normalized();
+        fri = fri_mod * Eigen::Vector2d(rxCell - obj->x, ryCell - obj->y).normalized();
     
         fr[0] += fri[0];
         fr[1] += fri[1];
@@ -172,7 +178,7 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_cont
 
     // Build path msg
     res.path.header.stamp = ros::Time::now();
-    res.path.header.frame_id = "worldNED";
+    res.path.header.frame_id = "world";
 
     geometry_msgs::PoseStamped q;
     q.pose = req.qs;
@@ -186,7 +192,7 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req, quad_cont
         q.pose = _eulerIntegration(q.pose, ft);
         
         q.header.stamp = ros::Time::now();
-        q.header.frame_id = "worldNED";
+        q.header.frame_id = "world";
 
         res.path.poses.push_back(q);
 

@@ -27,6 +27,7 @@ private:
     vector<Chunk*> _chunks;
     int8_t *_map;
     bool *_visited;
+    double _resolution; // [m/cell]
 
     void _fillTree(Chunk *root, int index, int w, int h);
     Chunk* _computeChunkDist(Chunk *chunk, int rx, int ry);
@@ -35,7 +36,7 @@ public:
     MapAnalyzer();
     ~MapAnalyzer();
 
-    void analyze(int8_t *map, int w, int h);
+    void analyze(int8_t *map, int w, int h, double resolution=1);
     void analyze(nav_msgs::OccupancyGrid &grid);
     vector<Chunk*> getObjAtMinDist(int rx, int ry);
     

@@ -39,7 +39,7 @@
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
 
-    <node pkg="tf" type="static_transform_publisher" name="maptf" args="0 0 0 0 0 0  world /map  100"/>
+    <!--<node pkg="tf" type="static_transform_publisher" name="maptf" args="0 0 0 0 0 0  world /map  100"/>-->
     <node pkg="tf" type="static_transform_publisher" name="wNED" args="0 0 0 1.57079 0 3.14159  world worldNED  100"/>
    <node pkg="tf" type="static_transform_publisher" name="bodyNED" args="0 0 0 1.57079 0 3.14159  hummingbird/base_link hummingbird/base_linkNED  100"/>
 
@@ -52,16 +52,19 @@
         <param name="startX" type="double" value="-6.0"/>
         <param name="startY" type="double" value="-6.0"/>
         <param name="startZ" type="double" value="0.0"/>
-        <param name="endX"   type="double" value="-5.0"/>
+        <param name="endX"   type="double" value="-5.5"/>
         <param name="endY"   type="double" value="0.0"/>
-        <param name="endZ"   type="double" value="3.0"/>
+        <param name="endZ"   type="double" value="0.0"/>
     </node>
+
     <node pkg="quad_control" type="APPlanner2D_Server" name="APPlanner2D_Server" output="screen">
-        <param name="ka" type="double" value="10.0"/>
-        <param name="kr" type="double" value="10.0"/>
+        <param name="eta"   type="double" value="1.0"/>
+        <param name="ka"    type="double" value="10.0"/>
+        <param name="kr"    type="double" value="10.0"/>
     </node>
+
     <node name="map_server" pkg="map_server" type="map_server" args="$(find quad_control)/worlds/maps/arena.yaml" output="screen">
-        <param name="frame_id" type="string" value="worldNED"/>
+        <param name="frame_id" type="string" value="world"/>
     </node>
 
 </launch>

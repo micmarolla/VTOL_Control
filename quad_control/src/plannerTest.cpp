@@ -22,9 +22,9 @@ int main(int argc, char **argv){
     ros::NodeHandle nh("~");
     ros::Rate rate(1);
     ros::ServiceClient client = nh.serviceClient<quad_control::APPlanner2D>("/planning_srv");
-    ros::Subscriber sub = nh.subscribe("/map", 1, &map_cb);
+    ros::Subscriber sub = nh.subscribe("/map", 0, &map_cb);
     ros::Publisher pub = nh.advertise<nav_msgs::Path>("/plannedPath", 0);
-    
+
 
     double startX = nh.param<double>("startX", 0.0);
     double startY = nh.param<double>("startY", 0.0);

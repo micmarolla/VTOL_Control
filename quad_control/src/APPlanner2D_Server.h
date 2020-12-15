@@ -54,7 +54,7 @@ class APPlanner2D_Server{
         std::shared_ptr<int8_t[]> _getNeighbourhood(nav_msgs::OccupancyGrid &grid, Eigen::Vector3d pos, int &w, int &h, int &x, int &y);
         
         //
-        Vector6d _computeRepulsiveForce(/*shared_ptr<int8_t[]> submap, int w, int h,*/ int rx, int ry);
+        Vector6d _computeRepulsiveForce(/*shared_ptr<int8_t[]> submap, int w, int h,*/ double rx, double ry);
 
 
     public:

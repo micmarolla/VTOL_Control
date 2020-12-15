@@ -1,9 +1,12 @@
 #include "MapAnalyzer.h"
 #include <cmath>
+#include <sstream>
+#include "ros/console.h"
 
 MapAnalyzer::MapAnalyzer(){
     this->_map = 0;
     this->_visited = 0;
+    this->_resolution = 1;
 }
 
 
@@ -20,7 +23,7 @@ void MapAnalyzer::_fillTree(Chunk *root, int index, int w, int h){
     this->_visited[index] = true;
     if(this->_map[index] < 50)
         return;
-    
+
     // Left node
     if(root->x > 0){
         int k = index - 1;
@@ -44,12 +47,12 @@ void MapAnalyzer::_fillTree(Chunk *root, int index, int w, int h){
     }
 
     // Bottom node
-    if(root->y < h-1){
-        int k = index + w;
+    if(root->y > 0){
+        int k = index - w;
         if (!this->_visited[k] && this->_map[k]>50){
             root->down = new Chunk;
             root->down->x = root->x;
-            root->down->y = root->y+1;
+            root->down->y = root->y-1;
             _fillTree(root->down, k, w, h);
         }
     }
@@ -57,12 +60,13 @@ void MapAnalyzer::_fillTree(Chunk *root, int index, int w, int h){
 
 
 void MapAnalyzer::analyze(nav_msgs::OccupancyGrid &grid){
-    this->analyze(&grid.data[0], grid.info.width, grid.info.height);
+    this->analyze(&grid.data[0], grid.info.width, grid.info.height, grid.info.resolution);
 }
 
 
-void MapAnalyzer::analyze(int8_t *map, int w, int h){
+void MapAnalyzer::analyze(int8_t *map, int w, int h, double resolution){
     this->_map = map;
+    this->_resolution = resolution;
 
     for (auto chunk : this->_chunks)
         delete chunk;
@@ -76,19 +80,22 @@ void MapAnalyzer::analyze(int8_t *map, int w, int h){
         this->_visited[i] = false;
 
     // Scan the map
-    for (int i=0; i < size; ++i){
-        if (this->_map[i] < 50 || this->_visited[i]){
-            this->_visited[i] = true;
-            continue;
+    for (int r=h-1; r>=0; --r){
+        for (int c=0; c < w; ++c){
+            int i = r*w + c;
+            if (this->_map[i] < 50 || this->_visited[i]){
+                this->_visited[i] = true;
+                continue;
+            }
+    
+            // Fill tree
+            Chunk *obst = new Chunk;
+            obst->x = i % w;
+            obst->y = i / w;
+            this->_fillTree(obst, i, w, h);
+            
+            this->_chunks.push_back(obst);
         }
-
-        // Fill tree
-        Chunk *obst = new Chunk;
-        obst->x = i % w;
-        obst->y = i / w;
-        this->_fillTree(obst, i, w, h);
-        
-        this->_chunks.push_back(obst);
     }
 }
 
@@ -99,7 +106,8 @@ Chunk* MapAnalyzer::_computeChunkDist(Chunk *chunk, int rx, int ry){
 
     Chunk *best = chunk;
     Chunk *temp = 0;
-    chunk->dist2 = pow(chunk->x - rx, 2) + pow(chunk->y - ry, 2);
+    chunk->dist2 = pow(chunk->x - rx, 2) + pow(chunk->y - ry, 2); // [cell^2]
+    chunk->dist2 *= pow(_resolution, 2);    // Convert in meters^2
     
     if(chunk->left){
         temp = _computeChunkDist(chunk->left, rx, ry);
