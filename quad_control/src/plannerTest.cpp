@@ -6,7 +6,7 @@
 
 nav_msgs::OccupancyGrid testMap;
 bool ready = false;
-bool done = false;
+//bool done = false;
 
 
 void map_cb(nav_msgs::OccupancyGridConstPtr data){
@@ -23,7 +23,7 @@ int main(int argc, char **argv){
     ros::Rate rate(1);
     ros::ServiceClient client = nh.serviceClient<quad_control::APPlanner2D>("/planning_srv");
     ros::Subscriber sub = nh.subscribe("/map", 0, &map_cb);
-    ros::Publisher pub = nh.advertise<nav_msgs::Path>("/plannedPath", 0);
+    //ros::Publisher pub = nh.advertise<nav_msgs::Path>("/plannedPath", 0);
 
 
     double startX = nh.param<double>("startX", 0.0);
@@ -51,18 +51,29 @@ int main(int argc, char **argv){
         srv.request.qg.orientation.z = 0;
     srv.request.qg.orientation.w = 1;
 
-    nav_msgs::Path path;
 
     while(ros::ok()){
         if(ready){
-            if(!done){
-                srv.request.map = testMap;
-                if(client.call(srv)){
-                    path = srv.response.path;
-                    done = true;
-                }
+            srv.request.map = testMap;
+            if(client.call(srv)){
+                ROS_INFO_STREAM("Positions: " << srv.response.trajectory.p.size());
+                ROS_INFO_STREAM("Velocities: " << srv.response.trajectory.v.size());
+                ROS_INFO_STREAM("Accelerations: " << srv.response.trajectory.a.size());
+
+                ROS_INFO_STREAM("First pos: " << srv.response.trajectory.p[0].position.x <<
+                    ", " << srv.response.trajectory.p[0].position.y << ", " <<
+                    srv.response.trajectory.p[0].position.z);
+
+                ROS_INFO_STREAM("First vel: " << srv.response.trajectory.v[0].linear.x <<
+                    ", " << srv.response.trajectory.v[0].linear.y << ", " <<
+                    srv.response.trajectory.v[0].linear.z);
+
+                ROS_INFO_STREAM("First accel: " << srv.response.trajectory.a[0].linear.x <<
+                    ", " << srv.response.trajectory.a[0].linear.y << ", " <<
+                    srv.response.trajectory.a[0].linear.z);
+
+                break;
             }
-            pub.publish(path);
         }
         rate.sleep();
         ros::spinOnce(); 

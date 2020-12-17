@@ -21,7 +21,7 @@ typedef struct Chunk{
 
 
 /*
- * MapAnalyzer is an object that analize a 2D occupancy grid map, detecting
+ * MapAnalyzer is an object that analyzes a 2D occupancy grid map, detecting
  * chunk of pixels, and the pixel at the minimum distance from the robot.
  * N.B.: every distance is expressed in 'cells', not in meters.
  */

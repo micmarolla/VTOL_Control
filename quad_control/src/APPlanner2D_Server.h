@@ -81,14 +81,17 @@ private:
 private:
     ros::NodeHandle _nh;
     ros::ServiceServer _server;
+    ros::Publisher _pathPub;    // Publishes a nav_msgs/Path for debug purposes
+
     double _ka, _kr;    // Attractive and repulsive forces gain
     double _eta;        // Range of influence
     double _gamma;      // Used for repulsive forces computation, can be 2 or 3
     double _p_eps;      // if position error <= eps, it is assumed error = 0
     double _o_eps;      // if orientation error <= eps, it is assumed error = 0
     double _sampleTime;
-    nav_msgs::OccupancyGrid _map;
     bool _mapReady;     // true if the map has been set at least once
+
+    nav_msgs::OccupancyGrid _map;
     MapAnalyzer _mapAnalyzer;
 };
 

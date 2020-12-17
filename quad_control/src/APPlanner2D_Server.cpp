@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include "nav_msgs/Path.h"
+#include "geometry_msgs/Accel.h"
 #include <tf/tf.h>
 #include <tf/LinearMath/Matrix3x3.h>
 #include "MapAnalyzer.h"
@@ -21,7 +22,9 @@ APPlanner2D_Server::APPlanner2D_Server() : _nh("~"){
 
     _mapReady = false;
 
+    _pathPub = _nh.advertise<nav_msgs::Path>("/plannedPath", 0);
     _server = _nh.advertiseService("/planning_srv", &APPlanner2D_Server::plan, this);
+
 }
 
 
@@ -150,13 +153,15 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req,
     }
 
     // Build path msg
-    res.path.header.stamp = ros::Time::now();
-    res.path.header.frame_id = "world";
+    nav_msgs::Path path;
+    path.header.stamp = ros::Time::now();
+    path.header.frame_id = "world";
 
     geometry_msgs::PoseStamped q;
+    geometry_msgs::Accel v;
     q.pose = req.qs;
-    Vector6d err, ft;
-    bool done = false;
+    Vector6d err, ft, ftPrev;
+    bool done = false, first = true;
 
     while (!done){
         // Compute error, force, integrate and add to path
@@ -164,16 +169,44 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req,
         ft = _computeForce(q.pose, err);
         q.pose = _eulerIntegration(q.pose, ft);
         
+        // Accelerations
+        if(first)
+            first = false;
+        else{
+            v.linear.x  = (ft[0]-ftPrev[0])/_sampleTime;
+            v.linear.z  = (ft[1]-ftPrev[1])/_sampleTime;
+            v.linear.y  = (ft[2]-ftPrev[2])/_sampleTime;
+            v.angular.x = (ft[3]-ftPrev[3])/_sampleTime;
+            v.angular.z = (ft[4]-ftPrev[4])/_sampleTime;
+            v.angular.y = (ft[5]-ftPrev[5])/_sampleTime;
+            res.trajectory.a.push_back(v);
+        }
+        ftPrev = ft;
+
+        // Velocities
+        v.linear.x = ft[0]; v.linear.y = ft[1]; v.linear.z = ft[2];
+        v.angular.x = ft[3]; v.angular.y = ft[4]; v.angular.z = ft[5];
+        res.trajectory.v.push_back(v);
+
+        // Positions
         q.header.stamp = ros::Time::now();
         q.header.frame_id = "world";
-
-        res.path.poses.push_back(q);
+        path.poses.push_back(q);
+        res.trajectory.p.push_back(q.pose);
 
         // Check if goal has been reached
         done = (Eigen::Vector3d(err[0],err[1],err[2]).norm() <= this->_p_eps)
                 && (Eigen::Vector3d(err[3],err[4],err[5]).norm() <= this->_o_eps);
     }
+
+    // Append final null acceleration
+    v.linear.x = v.linear.y = v.linear.z = v.angular.x = v.angular.y = v.angular.z = 0;
+    res.trajectory.a.push_back(v);
     
+    res.trajectory.sampleTime = this->_sampleTime;
+    
+    this->_pathPub.publish(path);
+
     ROS_INFO("APPlanner_2D: path planning successfully completed.");
 
     return true;
