@@ -3,17 +3,28 @@
 
 MapAnalyzer::MapAnalyzer(){
     this->_map = 0;
+    this->_w = this->_h = 0;
     this->_visited = 0;
 }
 
 
 MapAnalyzer::~MapAnalyzer(){
     for (auto chunk : this->_chunks)
-        delete chunk;
+        _deleteTree(chunk);
+
+    delete this->_visited;
 }
 
 
-void MapAnalyzer::_fillTree(Chunk *root, int index, int w, int h){
+void MapAnalyzer::_deleteTree(Chunk *root){
+    if(root->left)  _deleteTree(root->left);
+    if(root->right) _deleteTree(root->right);
+    if(root->down)  _deleteTree(root->down);
+    delete root;
+}
+
+
+void MapAnalyzer::_fillTree(Chunk *root, int index){
     if(!this->_map || !this->_visited)
         return;
     
@@ -28,29 +39,29 @@ void MapAnalyzer::_fillTree(Chunk *root, int index, int w, int h){
             root->left = new Chunk;
             root->left->x = root->x-1;
             root->left->y = root->y;
-            _fillTree(root->left, k, w, h);
+            _fillTree(root->left, k);
         }
     }
 
     // Right node
-    if(root->x < w-1){
+    if(root->x < this->_w - 1){
         int k = index + 1;
         if (!this->_visited[k] && this->_map[k]>50){
             root->right = new Chunk;
             root->right->x = root->x+1;
             root->right->y = root->y;
-            _fillTree(root->right, k, w, h);
+            _fillTree(root->right, k);
         }
     }
 
     // Bottom node
     if(root->y > 0){
-        int k = index - w;
+        int k = index - this->_w;
         if (!this->_visited[k] && this->_map[k]>50){
             root->down = new Chunk;
             root->down->x = root->x;
             root->down->y = root->y-1;
-            _fillTree(root->down, k, w, h);
+            _fillTree(root->down, k);
         }
     }
 }
@@ -67,7 +78,7 @@ void MapAnalyzer::analyze(int8_t *map, int w, int h){
 
     // Clear chunks
     for (auto chunk : this->_chunks)
-        delete chunk;
+        _deleteTree(chunk);
     this->_chunks.clear();
 
     // Clear visited
@@ -75,6 +86,9 @@ void MapAnalyzer::analyze(int8_t *map, int w, int h){
     this->_visited = new bool[size];
     for (int i=0; i<size; ++i)
         this->_visited[i] = false;
+
+    this->_w = w;
+    this->_h = h;
 
     // Scan the map
     for (int r=h-1; r>=0; --r){
@@ -90,7 +104,7 @@ void MapAnalyzer::analyze(int8_t *map, int w, int h){
             Chunk *obst = new Chunk;
             obst->x = i % w;
             obst->y = i / w;
-            this->_fillTree(obst, i, w, h);
+            this->_fillTree(obst, i);
             
             this->_chunks.push_back(obst);
         }

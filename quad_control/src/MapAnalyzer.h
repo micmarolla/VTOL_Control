@@ -65,8 +65,8 @@ public:
 private:
     vector<Chunk*> _chunks;     // Roots of detected chunks
     int8_t *_map;
+    int _w, _h;                 // Map's width and height
     bool *_visited;
-    double _resolution;         // Map resolution [m/cell]
 
     /*
      * Starting from the given root chunk, fill the tree recursively.
@@ -74,9 +74,8 @@ private:
      *  - root: the tree chunk root
      *  - index: the index of the cell corresponding to the root chunk.
      *          NB: the 0 element corresponds to the bottom-left corner.
-     *  - w, h: map's width and height
      */
-    void _fillTree(Chunk *root, int index, int w, int h);
+    void _fillTree(Chunk *root, int index);
 
     /*
      * Return the point inside the given chunk with the minimum distance with
@@ -86,6 +85,11 @@ private:
      *  - rx, ry: the robot's position, expressed in cells
      */
     Chunk* _computeChunkDist(Chunk *chunk, int rx, int ry);
+
+    /*
+     * Delete recursively the chunk tree.
+     */
+    void _deleteTree(Chunk *root);
 
 };
 
