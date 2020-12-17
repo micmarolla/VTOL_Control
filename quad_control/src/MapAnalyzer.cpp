@@ -2,9 +2,10 @@
 #include <cmath>
 
 MapAnalyzer::MapAnalyzer(){
-    this->_map = 0;
-    this->_w = this->_h = 0;
-    this->_visited = 0;
+    _map = 0;
+    _mapReady = false;
+    _w = _h = 0;
+    _visited = 0;
 }
 
 
@@ -67,12 +68,11 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
 }
 
 
-void MapAnalyzer::analyze(nav_msgs::OccupancyGrid &grid){
-    this->analyze(&grid.data[0], grid.info.width, grid.info.height);
+void MapAnalyzer::setMap(nav_msgs::OccupancyGrid &grid){
+    this->setMap(&grid.data[0], grid.info.width, grid.info.height);
 }
 
-
-void MapAnalyzer::analyze(int8_t *map, int w, int h){
+void MapAnalyzer::setMap(int8_t *map, int w, int h){
     this->_map = map;
     int size = w*h;
 
@@ -89,11 +89,14 @@ void MapAnalyzer::analyze(int8_t *map, int w, int h){
 
     this->_w = w;
     this->_h = h;
+}
 
+
+void MapAnalyzer::scan(){
     // Scan the map
-    for (int r=h-1; r>=0; --r){
-        for (int c=0; c < w; ++c){
-            int i = r*w + c;
+    for (int r=_h-1; r>=0; --r){
+        for (int c=0; c < _w; ++c){
+            int i = r*_w + c;
 
             if (this->_map[i] < 50 || this->_visited[i]){
                 this->_visited[i] = true;
@@ -102,8 +105,8 @@ void MapAnalyzer::analyze(int8_t *map, int w, int h){
     
             // Fill tree
             Chunk *obst = new Chunk;
-            obst->x = i % w;
-            obst->y = i / w;
+            obst->x = i % _w;
+            obst->y = i / _w;
             this->_fillTree(obst, i);
             
             this->_chunks.push_back(obst);

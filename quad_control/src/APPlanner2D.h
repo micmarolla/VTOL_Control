@@ -3,7 +3,7 @@
 
 #include "ros/ros.h"
 #include "geometry_msgs/Pose.h"
-#include "nav_msgs/OccupancyGrid.h"
+#include "nav_msgs/MapMetaData.h"
 #include <Eigen/Dense>
 #include "quad_control/PlanRequest.h"
 #include "MapAnalyzer.h"
@@ -42,7 +42,6 @@ public:
      * execution time is saved.
      */
     void plan(quad_control::PlanRequestPtr req);
-//quad_control::APPlanner2D::Request &req,            quad_control::APPlanner2D::Response &res);
 
 
 private:
@@ -80,7 +79,6 @@ private:
 
 private:
     ros::NodeHandle _nh;
-    //ros::ServiceServer _server;
     ros::Subscriber _sub;
     ros::Publisher _pathPub, _pub;
 
@@ -92,7 +90,7 @@ private:
     double _sampleTime;
     bool _mapReady;     // true if the map has been set at least once
 
-    nav_msgs::OccupancyGrid _map;
+    nav_msgs::MapMetaData _mapInfo;
     MapAnalyzer _mapAnalyzer;
 };
 

@@ -41,7 +41,6 @@ int main(int argc, char **argv){
     ros::Subscriber sub = nh.subscribe("/map", 0, &map_cb);
     pub = nh.advertise<quad_control::PlanRequest>("/planRequest", 0, true);
 
-
     double startX = nh.param<double>("startX", 0.0);
     double startY = nh.param<double>("startY", 0.0);
     double startZ = nh.param<double>("startZ", 0.0);

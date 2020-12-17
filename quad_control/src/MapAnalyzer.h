@@ -32,25 +32,37 @@ public:
     ~MapAnalyzer();
 
     /*
-     * Scan the map searching for chunks of obstacles. The scan is performed
-     * from top-left to bottom-right corner; thus, the top-left corner of each
-     * obstacle is the root of the corresponding chunk tree.
-     * The detected chunks are stored in the private member variable _chunks.
+     * Set the environment map.
      */
-    void analyze(nav_msgs::OccupancyGrid &grid);
+    void setMap(nav_msgs::OccupancyGrid &grid);
 
     /*
-     * Scan the map searching for chunks of obstacles. The scan is performed
-     * from top-left to bottom-right corner; thus, the top-left corner of each
-     * obstacle is the root of the corresponding chunk tree.
-     * The detected chunks are stored in the private member variable _chunks.
+     * Set the environment map.
      * Parameters:
      *  - map: int8_t map data. This is designed to work with
      *         nav_msgs/OccupancyGrid: the data are stored in the map vector
      *         considering the (0,0) element in the bottom-left corner.
      *  - w, h: map's width and height
      */
-    void analyze(int8_t *map, int w, int h);
+    void setMap(int8_t *map, int w, int h);
+
+    /*
+     * Return true if a map has been loaded, false else.
+     */
+    bool mapReady(){ return this->_mapReady; }
+
+    /*
+     * Return true if the map has been scanned, false else.
+     */
+    bool mapScanned(){ return this->_scanned; }
+
+    /*
+     * Scan the map searching for chunks of obstacles. The scan is performed
+     * from top-left to bottom-right corner; thus, the top-left corner of each
+     * obstacle is the root of the corresponding chunk tree.
+     * The detected chunks are stored in the private member variable _chunks.
+     */
+    void scan();
 
     /*
      * Detect for each chunk the point with minimum distance with respect to
@@ -64,7 +76,9 @@ public:
 
 private:
     vector<Chunk*> _chunks;     // Roots of detected chunks
-    int8_t *_map;
+    int8_t* _map;
+    bool _mapReady;             // True if map has been loaded
+    bool _scanned;              // True if map has been scanned
     int _w, _h;                 // Map's width and height
     bool *_visited;
 

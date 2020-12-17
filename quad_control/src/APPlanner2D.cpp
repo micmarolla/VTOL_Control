@@ -22,20 +22,16 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _o_eps      = _nh.param<double>("o_eps", 0.001);
     _sampleTime = _nh.param<double>("sampleTime", 0.01);
 
-    _mapReady = false;
-
     _sub = _nh.subscribe("/planRequest", 0, &APPlanner2D::plan, this);
     _pub = _nh.advertise<quad_control::Trajectory>("/trajectory", 0, true);
     _pathPub = _nh.advertise<nav_msgs::Path>("/plannedPath", 0, true);
-    //_server = _nh.advertiseService("/planning_srv", &APPlanner2D_Server::plan, this);
 
 }
 
 
 void APPlanner2D::setMap(nav_msgs::OccupancyGrid &map){
-    this->_map = map;
-    this->_mapAnalyzer.analyze(map);
-    this->_mapReady = true;
+    this->_mapAnalyzer.setMap(map);
+    this->_mapAnalyzer.scan();
 }
 
 
@@ -117,14 +113,14 @@ Vector6d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
     Eigen::Vector2d fri;
 
     // Retrieve robot coordinates in the map cell reference
-    int rxCell = (rx - this->_map.info.origin.position.x) / this->_map.info.resolution;
-    int ryCell = (ry - this->_map.info.origin.position.y) / this->_map.info.resolution;
+    int rxCell = (rx - this->_mapInfo.origin.position.x) / this->_mapInfo.resolution;
+    int ryCell = (ry - this->_mapInfo.origin.position.y) / this->_mapInfo.resolution;
 
     // For each chunk, considering the minimum-distance point from the robot...
     vector<Chunk*> obstacles = this->_mapAnalyzer.getObjAtMinDist(rxCell, ryCell);
     for (auto obj : obstacles){
 
-        obj->dist2 *= pow(this->_map.info.resolution, 2); // convert to [meters^2]
+        obj->dist2 *= pow(this->_mapInfo.resolution, 2); // convert to [meters^2]
         if (obj->dist2 > pow(this->_eta,2))
             continue;
 
@@ -143,8 +139,8 @@ Vector6d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
 void APPlanner2D::plan(quad_control::PlanRequestPtr req){
     ROS_INFO("APPlanner_2D: path planning requested.");
 
-     // If no map is present, or the current map if updated
-    if(!this->_mapReady || (req->map.info.width > 0 && req->map.info.height > 0))
+     // If no map is present, or the current map has been updated
+    if(!this->_mapAnalyzer.mapReady() || (req->map.info.width > 0 && req->map.info.height > 0))
         this->setMap(req->map);
 
     // Check that repulsive forces in q_goal are null
