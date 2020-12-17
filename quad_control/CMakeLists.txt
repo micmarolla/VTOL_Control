@@ -62,14 +62,16 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
+  PlanRequest.msg
   Trajectory.msg
 )
 
 ## Generate services in the 'srv' folder
-add_service_files(
-  FILES
-  APPlanner2D.srv
-)
+# add_service_files(
+#   FILES
+#   Service1.srv
+#   Service2.srv
+# )
 
 ## Generate actions in the 'action' folder
 #add_action_files(
@@ -148,8 +150,8 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 
-add_executable(APPlanner2D_Server src/APPlanner2D_Server.cpp src/MapAnalyzer.cpp)
-target_link_libraries(APPlanner2D_Server ${catkin_LIBRARIES})
+add_executable(APPlanner2D src/APPlanner2D src/MapAnalyzer.cpp)
+target_link_libraries(APPlanner2D ${catkin_LIBRARIES})
 
 add_executable(plannerTest src/plannerTest.cpp)
 target_link_libraries(plannerTest ${catkin_LIBRARIES})

@@ -1,11 +1,11 @@
-#ifndef _APPLANNER2D_SERVER_
-#define _APPLANNER2D_SERVER_
+#ifndef _APPLANNER2D_
+#define _APPLANNER2D_
 
 #include "ros/ros.h"
-#include "quad_control/APPlanner2D.h"
 #include "geometry_msgs/Pose.h"
 #include "nav_msgs/OccupancyGrid.h"
 #include <Eigen/Dense>
+#include "quad_control/PlanRequest.h"
 #include "MapAnalyzer.h"
 
 using namespace std;
@@ -15,18 +15,18 @@ typedef Eigen::Matrix<double, 6, 1> Vector6d;
 
 
 /*
- * APPlanner2D provides a service that realizes path planning via artificial
- * potentials method, for a 2D known environment.
- * The planning is realized considering the virtual force acting on the robot
- * as a velocity, and the integration is realized through Euler method.
+ * APPlanner2D realizes path planning via artificial potentials method, for a 2D
+ * known environment. The planning is realized considering the virtual force
+ * acting on the robot as a velocity, and the integration is realized through
+ * Euler method.
  * It is assumed that each C-Obstacle has the same range of influence, and all
  * the repulsive force gains k_(r,i) are the same.
  * Notice that the planning is made with respect to the world ENU frame.
  */
-class APPlanner2D_Server{
+class APPlanner2D{
 
 public:
-    APPlanner2D_Server();
+    APPlanner2D();
 
     /*
      * Analyze the map and detect obstacles. It can be done only once for
@@ -34,19 +34,19 @@ public:
      */
     void setMap(nav_msgs::OccupancyGrid &map);
 
-    /*
-     * Plan the trajectory. For further details request and response, see
-     * APPlanner.srv file.
+    /* ---- REWRITE THIS ----
+     * Plan the trajectory.
      * Notice that, after the service is called in the first place, the map is
      * stored. So, you can use again the same map, setting to 0 the width or
      * height in req.map.info. In this way, the map is not analyzed again, and
      * execution time is saved.
      */
-    bool plan(quad_control::APPlanner2D::Request &req,
-            quad_control::APPlanner2D::Response &res);
+    void plan(quad_control::PlanRequestPtr req);
+//quad_control::APPlanner2D::Request &req,            quad_control::APPlanner2D::Response &res);
 
 
 private:
+
     /*
      * Compute position and orientation error, between actual and desired pose.
      * The orientation error is computed considering RPY angles.
@@ -80,8 +80,9 @@ private:
 
 private:
     ros::NodeHandle _nh;
-    ros::ServiceServer _server;
-    ros::Publisher _pathPub;    // Publishes a nav_msgs/Path for debug purposes
+    //ros::ServiceServer _server;
+    ros::Subscriber _sub;
+    ros::Publisher _pathPub, _pub;
 
     double _ka, _kr;    // Attractive and repulsive forces gain
     double _eta;        // Range of influence

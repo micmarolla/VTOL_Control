@@ -1,4 +1,4 @@
-#include "APPlanner2D_Server.h"
+#include "APPlanner2D.h"
 #include <cmath>
 #include <iostream>
 #include <vector>
@@ -7,10 +7,12 @@
 #include <tf/tf.h>
 #include <tf/LinearMath/Matrix3x3.h>
 #include "MapAnalyzer.h"
+#include "quad_control/PlanRequest.h"
+#include "quad_control/Trajectory.h"
 
 using namespace std;
 
-APPlanner2D_Server::APPlanner2D_Server() : _nh("~"){
+APPlanner2D::APPlanner2D() : _nh("~"){
     // Retrieve params
     _ka         = _nh.param<double>("ka", 1.0);
     _kr         = _nh.param<double>("kr", 1.0);
@@ -22,20 +24,22 @@ APPlanner2D_Server::APPlanner2D_Server() : _nh("~"){
 
     _mapReady = false;
 
-    _pathPub = _nh.advertise<nav_msgs::Path>("/plannedPath", 0);
-    _server = _nh.advertiseService("/planning_srv", &APPlanner2D_Server::plan, this);
+    _sub = _nh.subscribe("/planRequest", 0, &APPlanner2D::plan, this);
+    _pub = _nh.advertise<quad_control::Trajectory>("/trajectory", 0, true);
+    _pathPub = _nh.advertise<nav_msgs::Path>("/plannedPath", 0, true);
+    //_server = _nh.advertiseService("/planning_srv", &APPlanner2D_Server::plan, this);
 
 }
 
 
-void APPlanner2D_Server::setMap(nav_msgs::OccupancyGrid &map){
+void APPlanner2D::setMap(nav_msgs::OccupancyGrid &map){
     this->_map = map;
     this->_mapAnalyzer.analyze(map);
     this->_mapReady = true;
 }
 
 
-Vector6d APPlanner2D_Server::_computeError(geometry_msgs::Pose q, geometry_msgs::Pose qd){
+Vector6d APPlanner2D::_computeError(geometry_msgs::Pose q, geometry_msgs::Pose qd){
     Vector6d e;
     
     // Position
@@ -59,7 +63,7 @@ Vector6d APPlanner2D_Server::_computeError(geometry_msgs::Pose q, geometry_msgs:
 
 
 
-geometry_msgs::Pose APPlanner2D_Server::_eulerIntegration(geometry_msgs::Pose q,
+geometry_msgs::Pose APPlanner2D::_eulerIntegration(geometry_msgs::Pose q,
         Vector6d ft){
 
     /* Position */
@@ -88,7 +92,7 @@ geometry_msgs::Pose APPlanner2D_Server::_eulerIntegration(geometry_msgs::Pose q,
 }
 
 
-Vector6d APPlanner2D_Server::_computeForce(geometry_msgs::Pose q, Vector6d e){
+Vector6d APPlanner2D::_computeForce(geometry_msgs::Pose q, Vector6d e){
     Vector6d fa, fr;
 
     /* Attractive potentials */
@@ -106,7 +110,7 @@ Vector6d APPlanner2D_Server::_computeForce(geometry_msgs::Pose q, Vector6d e){
 }
 
 
-Vector6d APPlanner2D_Server::_computeRepulsiveForce(double rx, double ry){
+Vector6d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
     Vector6d fr;
     fr << 0,0,0,0,0,0;
     double fri_mod = 0;
@@ -136,36 +140,35 @@ Vector6d APPlanner2D_Server::_computeRepulsiveForce(double rx, double ry){
 }
 
 
-bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req,
-        quad_control::APPlanner2D::Response &res){
-
+void APPlanner2D::plan(quad_control::PlanRequestPtr req){
     ROS_INFO("APPlanner_2D: path planning requested.");
 
      // If no map is present, or the current map if updated
-    if(!this->_mapReady || (req.map.info.width > 0 && req.map.info.height > 0))
-        this->setMap(req.map);
+    if(!this->_mapReady || (req->map.info.width > 0 && req->map.info.height > 0))
+        this->setMap(req->map);
 
     // Check that repulsive forces in q_goal are null
-    Vector6d fr_g = _computeRepulsiveForce(req.qg.position.x, req.qg.position.y);
+    Vector6d fr_g = _computeRepulsiveForce(req->qg.position.x, req->qg.position.y);
     if(fr_g[0] != 0 || fr_g[1] != 0){
         ROS_ERROR("Repulsive forces in goal configuration are not null. Planning is not possible");
-        return false;
+        return;
     }
 
     // Build path msg
+    quad_control::Trajectory trajectory;
     nav_msgs::Path path;
     path.header.stamp = ros::Time::now();
     path.header.frame_id = "world";
 
     geometry_msgs::PoseStamped q;
     geometry_msgs::Accel v;
-    q.pose = req.qs;
+    q.pose = req->qs;
     Vector6d err, ft, ftPrev;
     bool done = false, first = true;
 
     while (!done){
         // Compute error, force, integrate and add to path
-        err = _computeError(q.pose, req.qg);
+        err = _computeError(q.pose, req->qg);
         ft = _computeForce(q.pose, err);
         q.pose = _eulerIntegration(q.pose, ft);
         
@@ -179,20 +182,20 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req,
             v.angular.x = (ft[3]-ftPrev[3])/_sampleTime;
             v.angular.z = (ft[4]-ftPrev[4])/_sampleTime;
             v.angular.y = (ft[5]-ftPrev[5])/_sampleTime;
-            res.trajectory.a.push_back(v);
+            trajectory.a.push_back(v);
         }
         ftPrev = ft;
 
         // Velocities
         v.linear.x = ft[0]; v.linear.y = ft[1]; v.linear.z = ft[2];
         v.angular.x = ft[3]; v.angular.y = ft[4]; v.angular.z = ft[5];
-        res.trajectory.v.push_back(v);
+        trajectory.v.push_back(v);
 
         // Positions
         q.header.stamp = ros::Time::now();
         q.header.frame_id = "world";
         path.poses.push_back(q);
-        res.trajectory.p.push_back(q.pose);
+        trajectory.p.push_back(q.pose);
 
         // Check if goal has been reached
         done = (Eigen::Vector3d(err[0],err[1],err[2]).norm() <= this->_p_eps)
@@ -201,21 +204,20 @@ bool APPlanner2D_Server::plan(quad_control::APPlanner2D::Request &req,
 
     // Append final null acceleration
     v.linear.x = v.linear.y = v.linear.z = v.angular.x = v.angular.y = v.angular.z = 0;
-    res.trajectory.a.push_back(v);
+    trajectory.a.push_back(v);
     
-    res.trajectory.sampleTime = this->_sampleTime;
+    trajectory.sampleTime = this->_sampleTime;
     
     this->_pathPub.publish(path);
+    this->_pub.publish(trajectory);
 
     ROS_INFO("APPlanner_2D: path planning successfully completed.");
-
-    return true;
 }
 
 
 int main(int argc, char **argv){
     ros::init(argc, argv, "2d_planner");
-    APPlanner2D_Server server;
+    APPlanner2D planner;
     ros::spin();
     return 0;
 }
