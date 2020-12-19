@@ -3,7 +3,7 @@
 
 #include "ros/ros.h"
 #include <Eigen/Dense>
-#include "geometry_msgs/Pose.h"
+#include "quad_control/UAVPose.h"
 #include "geometry_msgs/Accel.h"
 #include "nav_msgs/Odometry.h"
 #include "quad_control/Trajectory.h"
@@ -41,7 +41,7 @@ private:
     ros::Time _startTime;
     bool _started, _completed;
 
-    geometry_msgs::Pose _dp;                // Desired pos
+    quad_control::UAVPose _dp;              // Desired pos
     geometry_msgs::Accel _dv, _da;          // Desired vel and acc
 
     nav_msgs::Odometry _odom;

@@ -4,6 +4,7 @@
 MapAnalyzer::MapAnalyzer(){
     _map = 0;
     _mapReady = false;
+    _scanned = false;
     _w = _h = 0;
     _visited = 0;
 }
@@ -89,6 +90,8 @@ void MapAnalyzer::setMap(int8_t *map, int w, int h){
 
     this->_w = w;
     this->_h = h;
+
+    this->_mapReady = true;
 }
 
 
@@ -112,6 +115,8 @@ void MapAnalyzer::scan(){
             this->_chunks.push_back(obst);
         }
     }
+
+    _scanned = true;
 }
 
 

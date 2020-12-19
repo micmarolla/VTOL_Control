@@ -96,10 +96,8 @@ void Controller::_outerLoop(){
     
     // Compute outputs
     _uT = _m * sqrt(pow(_mud[0],2) + pow(_mud[1],2) + pow(_mud[2] - GRAVITY,2));
-
-    tf::Matrix3x3(tf::Quaternion(_dp.orientation.x, _dp.orientation.y,
-        _dp.orientation.z, _dp.orientation.w)).getRPY(_dRoll,_dPitch,_dYaw);
-
+    
+    _dYaw = _dp.yaw;
     _dRoll = asin(_m * (_mud[1]*cos(_dYaw) - _mud[0]*sin(_dYaw)) / _uT);
     _dPitch = atan2(_mud[0]*cos(_dYaw) + _mud[1]*sin(_dYaw), _mud[2] - GRAVITY);
 }

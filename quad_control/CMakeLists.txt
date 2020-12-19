@@ -64,6 +64,7 @@ add_message_files(
   FILES
   PlanRequest.msg
   Trajectory.msg
+  UAVPose.msg
 )
 
 ## Generate services in the 'srv' folder

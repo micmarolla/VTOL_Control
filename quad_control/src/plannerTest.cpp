@@ -1,5 +1,4 @@
 #include "ros/ros.h"
-#include "geometry_msgs/Pose.h"
 #include "nav_msgs/OccupancyGrid.h"
 #include "quad_control/PlanRequest.h"
 #include "quad_control/Trajectory.h"
@@ -51,16 +50,12 @@ int main(int argc, char **argv){
     req.qs.position.x = startX;
     req.qs.position.y = startY;
     req.qs.position.z = startZ;
-
-    req.qs.orientation.x = req.qs.orientation.y = req.qs.orientation.z = 0;
-    req.qs.orientation.w = 1;
+    req.qs.yaw = 0;
 
     req.qg.position.x = endX;
     req.qg.position.y = endY;
     req.qg.position.z = endZ;
-
-    req.qg.orientation.x = req.qg.orientation.y = req.qg.orientation.z = 0;
-    req.qg.orientation.w = 1;
+    req.qg.yaw = 0;
 
     while(ros::ok()){
         rate.sleep();

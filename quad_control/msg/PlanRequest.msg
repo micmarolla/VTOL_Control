@@ -1,3 +1,3 @@
-geometry_msgs/Pose qs
-geometry_msgs/Pose qg
+UAVPose qs
+UAVPose qg
 nav_msgs/OccupancyGrid map

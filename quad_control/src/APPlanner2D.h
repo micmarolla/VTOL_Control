@@ -2,7 +2,7 @@
 #define _APPLANNER2D_
 
 #include "ros/ros.h"
-#include "geometry_msgs/Pose.h"
+#include "quad_control/UAVPose.h"
 #include "nav_msgs/MapMetaData.h"
 #include <Eigen/Dense>
 #include "quad_control/PlanRequest.h"
@@ -11,7 +11,7 @@
 using namespace std;
 
 // Column vector of 6 double
-typedef Eigen::Matrix<double, 6, 1> Vector6d;
+typedef Eigen::Matrix<double, 4, 1> Vector4d;
 
 
 /*
@@ -50,7 +50,7 @@ private:
      * Compute position and orientation error, between actual and desired pose.
      * The orientation error is computed considering RPY angles.
      */
-    Vector6d _computeError(geometry_msgs::Pose q, geometry_msgs::Pose qd);
+    Vector4d _computeError(quad_control::UAVPose q, quad_control::UAVPose qd);
 
     /*
      * Compute next configuration using Euler integration: qnext = q + ft*T.
@@ -58,7 +58,7 @@ private:
      *  - q: robot pose
      *  - ft: total force acting on the robot
      */
-    geometry_msgs::Pose _eulerIntegration(geometry_msgs::Pose q, Vector6d ft);
+    quad_control::UAVPose _eulerIntegration(quad_control::UAVPose q, Vector4d ft);
 
     /*
      * Compute the virtual forces applied on the robot, via the artificial
@@ -67,14 +67,14 @@ private:
      *  - q: robot pose
      *  - e: error
      */
-    Vector6d _computeForce(geometry_msgs::Pose q, Vector6d e);
+    Vector4d _computeForce(quad_control::UAVPose q, Vector4d e);
         
     /*
      * Compute repulsive forces acting on the robot.
      * Parameters:
      *  - rx, ry: robot position (in meters)
      */
-    Vector6d _computeRepulsiveForce(double rx, double ry);
+    Vector4d _computeRepulsiveForce(double rx, double ry);
 
 
 private:
@@ -88,7 +88,7 @@ private:
     double _p_eps;      // if position error <= eps, it is assumed error = 0
     double _o_eps;      // if orientation error <= eps, it is assumed error = 0
     double _sampleTime;
-    bool _mapReady;     // true if the map has been set at least once
+    bool _debugPath;    // if true, publish nav_msgs::Path debug msg
 
     nav_msgs::MapMetaData _mapInfo;
     MapAnalyzer _mapAnalyzer;

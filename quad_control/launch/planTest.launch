@@ -57,7 +57,8 @@
         <param name="endZ"   type="double" value="0.0"/>
     </node>
 
-    <node pkg="quad_control" type="APPlanner2D_Server" name="APPlanner2D_Server" output="screen">
+    <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="screen">
+        <param name="debugPath"     type="bool"     value="true"/>
         <param name="sampleTime"    type="double"   value="0.01"/>
         <param name="eta"           type="double"   value="1.0"/>
         <param name="ka"            type="double"   value="0.5"/>

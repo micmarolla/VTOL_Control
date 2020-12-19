@@ -49,12 +49,12 @@ public:
     /*
      * Return true if a map has been loaded, false else.
      */
-    bool mapReady(){ return this->_mapReady; }
+    bool ready(){ return this->_mapReady; }
 
     /*
      * Return true if the map has been scanned, false else.
      */
-    bool mapScanned(){ return this->_scanned; }
+    bool scanned(){ return this->_scanned; }
 
     /*
      * Scan the map searching for chunks of obstacles. The scan is performed
