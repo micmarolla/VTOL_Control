@@ -38,10 +38,14 @@ private:
     quad_control::Trajectory _traj;         // Trajectory
     bool _trajReady;
 
+    ros::Time _startTime;
+    bool _started, _completed;
+
     geometry_msgs::Pose _dp;                // Desired pos
     geometry_msgs::Accel _dv, _da;          // Desired vel and acc
 
     nav_msgs::Odometry _odom;
+    Eigen::Matrix3d _Rb;
     bool _odomReady;
 
     double _dRoll, _dPitch, _dYaw;    

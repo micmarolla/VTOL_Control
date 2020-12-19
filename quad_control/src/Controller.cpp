@@ -1,6 +1,7 @@
 #include "Controller.h"
 #include <cmath>
 #include <tf/LinearMath/Matrix3x3.h>
+#include <tf_conversions/tf_eigen.h>
 #include "geometry_msgs/Wrench.h"
 
 #define GRAVITY 9.81
@@ -19,6 +20,8 @@ Controller::Controller() : _nh("~"){
 
     _trajReady = false;
     _odomReady = false;
+    _started = false;
+    _completed = false;
 
     _trajSub = _nh.subscribe("/trajectory", 0, &Controller::trajectoryReceived, this);
     _odomSub = _nh.subscribe("/hummingbird/ground_truth/odometryNED", 0, &Controller::odomReceived, this);
@@ -33,15 +36,36 @@ void Controller::trajectoryReceived(quad_control::TrajectoryPtr traj){
 
 void Controller::odomReceived(nav_msgs::OdometryPtr odom){
     _odom = *odom;
+
+    // Get current rotation matrix of body frame w.r.t. worldNED frame
+    tf::matrixTFToEigen(tf::Matrix3x3(tf::Quaternion(_odom.pose.pose.orientation.x,
+        _odom.pose.pose.orientation.y, _odom.pose.pose.orientation.z,
+        _odom.pose.pose.orientation.w)), _Rb);
+
     _odomReady = true;
 }
 
 
 void Controller::_getCurrentTrajPoint(){
+    if(_completed)
+        return;
+
     // Get current trajectory point
-    // Transform lin and ang velocity from body frame to world NED frame
-    //  .. compute Rb using tf::Matrix from quaternion in desired pose, then
-    //      convert with tf::matrixTFToEigen (in "tf/tf_eigen.h")
+    ros::Time now = ros::Time::now();
+    ros::Duration elapsed = now - _startTime;
+    
+    int steps = int(elapsed.toSec() / _traj.sampleTime);
+
+    if(_traj.p.size() <= steps || _traj.v.size() <= steps || _traj.a.size() <= steps){
+        ROS_INFO("Trajectory completed");
+        _completed = true;
+        return;
+    }
+
+    // Retrieve current trajectory point
+    _dp = _traj.p[steps];
+    _dv = _traj.v[steps];
+    _da = _traj.a[steps];
 }
 
 void Controller::_outerLoop(){
@@ -54,20 +78,23 @@ void Controller::_outerLoop(){
             pose.position.y - _dp.position.y,
             pose.position.z - _dp.position.z);
 
+    // Transform velocity from body frame to worldNED frame
+    Eigen::Vector3d linVel (twist.linear.x, twist.linear.y, twist.linear.z);
+    linVel = _Rb * linVel;
+
     // Linear velocity error
-    Eigen::Vector3d _epd (twist.linear.x - _dv.linear.x,
-            twist.linear.y - _dv.linear.y,
-            twist.linear.z - _dv.linear.z);
+    Eigen::Vector3d _epd (linVel.x() - _dv.linear.x,
+            linVel.y() - _dv.linear.y, linVel.z() - _dv.linear.z);
 
 
-    /* Compute mu_d */
+    // Compute mu_d
     Eigen::Matrix<double,6,1> e;
     e << _ep[0], _ep[1], _ep[2], _epd[0], _epd[1], _epd[2];
 
     _mud = -_Kp*e + Eigen::Vector3d(_da.linear.x, _da.linear.y, _da.linear.z);
     
     
-    /* Compute outputs */
+    // Compute outputs
     _uT = _m * sqrt(pow(_mud[0],2) + pow(_mud[1],2) + pow(_mud[2] - GRAVITY,2));
 
     tf::Matrix3x3(tf::Quaternion(_dp.orientation.x, _dp.orientation.y,
@@ -96,17 +123,24 @@ void Controller::run(){
     cmd.force.x = cmd.force.y = 0;
 
     while(ros::ok()){
-        _getCurrentTrajPoint();
-        _outerLoop();       // compute uT
-        _innerLoop();       // compute tau
+        if(_trajReady && _odomReady){
+            if(!_started){
+                _startTime = ros::Time::now();
+                _started = true;
+            }
 
-        // Build command msg and publish it
-        cmd.force.z = _uT;
-        cmd.torque.x = _tau[0];
-        cmd.torque.y = _tau[1];
-        cmd.torque.z = _tau[2];
+            _getCurrentTrajPoint();
+            _outerLoop();       // compute uT
+            _innerLoop();       // compute tau
+
+            // Build command msg and publish it
+            cmd.force.z = _uT;
+            cmd.torque.x = _tau[0];
+            cmd.torque.y = _tau[1];
+            cmd.torque.z = _tau[2];
         
-        _pub.publish(cmd);
+            _pub.publish(cmd);
+        }
 
         r.sleep();
         ros::spinOnce();
