@@ -7,6 +7,7 @@
 #include "geometry_msgs/Accel.h"
 #include "nav_msgs/Odometry.h"
 #include "quad_control/Trajectory.h"
+#include "LP2Filter.h"
 
 /*
  * This is a hierarchical controller for the VTOL UAV. Starting from desired
@@ -48,11 +49,12 @@ private:
     Eigen::Matrix3d _Rb;
     bool _odomReady;
 
-    double _dRoll, _dPitch, _dYaw;    
+    Eigen::Vector3d _deta;//double _dRoll, _dPitch, _dYaw;    
     Eigen::Vector3d _mud;
     double _uT;
     Eigen::Vector3d _tau;
 
+    LP2Filter<Eigen::Vector2d> _filter;     // Low-pass 2nd order filter
 
     void _getCurrentTrajPoint();
     void _innerLoop();
