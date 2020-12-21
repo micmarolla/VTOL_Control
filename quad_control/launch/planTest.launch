@@ -6,7 +6,7 @@
   <arg name="log_file" default="$(arg mav_name)" />
   <arg name="debug" default="false"/>
   <arg name="gui" default="true"/>
-  <arg name="paused" default="false"/>
+  <arg name="paused" default="true"/>
   <!-- The following line causes gzmsg and gzerr messages to be printed to the console
       (even when Gazebo is started through roslaunch) -->
   <arg name="verbose" default="false"/>
@@ -48,13 +48,21 @@
   </group>
 
 
+    <node pkg="quad_control" type="Controller" name="Controller" output="log"/>
+
     <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen">
-        <param name="startX" type="double" value="-6.0"/>
+        <!--<param name="startX" type="double" value="-6.0"/>
         <param name="startY" type="double" value="3.0"/>
         <param name="startZ" type="double" value="0.0"/>
         <param name="endX"   type="double" value="6.0"/>
         <param name="endY"   type="double" value="6.0"/>
-        <param name="endZ"   type="double" value="0.0"/>
+        <param name="endZ"   type="double" value="0.0"/>-->
+        <param name="startX" type="double" value="-6.0"/>
+        <param name="startY" type="double" value="-6.0"/>
+        <param name="startZ" type="double" value="0.0"/>
+        <param name="endX"   type="double" value="-6.0"/>
+        <param name="endY"   type="double" value="-6.0"/>
+        <param name="endZ"   type="double" value="1.0"/>
     </node>
 
     <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="screen">

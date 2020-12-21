@@ -17,7 +17,7 @@ Controller::Controller() : _nh("~"){
 
     // Read Kp, Ke as matrix
     
-    _rate = _nh.param<double>("rate", 0.001);
+    _rate = _nh.param<double>("rate", 1000);
 
     _trajReady = false;
     _odomReady = false;
@@ -26,7 +26,7 @@ Controller::Controller() : _nh("~"){
 
     double k1 = _nh.param<double>("k1", 100.0);
     double k2 = _nh.param<double>("k2", 100.0);
-    _filter.initFilterStep(k1, k2, Vector2d::Zero(), Vector2d::Zero());
+    _filter.initFilterStep(0.001, k1, k2, Vector2d::Zero(), Vector2d::Zero());
 
     _trajSub = _nh.subscribe("/trajectory", 0, &Controller::trajectoryReceived, this);
     _odomSub = _nh.subscribe("/hummingbird/ground_truth/odometryNED", 0, &Controller::odomReceived, this);
@@ -71,10 +71,15 @@ void Controller::_getCurrentTrajPoint(){
     _dp = _traj.p[steps];
     _dv = _traj.v[steps];
     _da = _traj.a[steps];
+
+    ROS_INFO_STREAM("Current trajectory point: " << _dp.position.x << ", " <<
+        _dp.position.y << ", " << _dp.position.z << "; " << _dp.yaw); ///////
 }
 
 
 void Controller::_outerLoop(){
+    ROS_INFO("OUTER LOOP");
+
     /* Compute position and linear velocity error */
     geometry_msgs::Pose& pose = this->_odom.pose.pose;
     geometry_msgs::Twist& twist = this->_odom.twist.twist;
@@ -83,6 +88,7 @@ void Controller::_outerLoop(){
     Eigen::Vector3d ep (pose.position.x - _dp.position.x,
             pose.position.y - _dp.position.y,
             pose.position.z - _dp.position.z);
+    ROS_INFO_STREAM("Position error: " << ep[0] << ", " << ep[1] << ", " << ep[2]); ////
 
     // Transform velocity from body frame to worldNED frame
     Eigen::Vector3d linVel (twist.linear.x, twist.linear.y, twist.linear.z);
@@ -91,6 +97,7 @@ void Controller::_outerLoop(){
     // Linear velocity error
     Eigen::Vector3d epd (linVel.x() - _dv.linear.x,
             linVel.y() - _dv.linear.y, linVel.z() - _dv.linear.z);
+    ROS_INFO_STREAM("Velocity error: " << epd[0] << ", " << epd[1] << ", " << epd[2]); ////
 
 
     // Compute mu_d
@@ -98,18 +105,23 @@ void Controller::_outerLoop(){
     e << ep, epd;
 
     _mud = -_Kp*e + Eigen::Vector3d(_da.linear.x, _da.linear.y, _da.linear.z);
+    ROS_INFO_STREAM("mud: " << _mud[0] << ", " << _mud[1] << ", " << _mud[2]); ////
     
     
     // Compute outputs
     _uT = _m * sqrt(pow(_mud[0],2) + pow(_mud[1],2) + pow(_mud[2] - GRAVITY,2));
+    ROS_INFO_STREAM("uT: " << _uT); ////////
     
     _deta[0] = asin(_m * (_mud[1]*cos(_dp.yaw) - _mud[0]*sin(_dp.yaw)) / _uT);
     _deta[1] = atan2(_mud[0]*cos(_dp.yaw) + _mud[1]*sin(_dp.yaw), _mud[2] - GRAVITY);
     _deta[2] = _dp.yaw;
+    ROS_INFO_STREAM("des_eta: " << _deta[0] << ", " << _deta[1] << ", " << _deta[2]); //////
 }
 
 
 void Controller::_innerLoop(){
+    ROS_INFO("INNER LOOP");
+
     // Compute derivatives of orientation
     Eigen::Vector3d deta_d, deta_dd;
     this->_filter.filterStep(_deta.segment<2>(0));
@@ -125,12 +137,17 @@ void Controller::_innerLoop(){
     Eigen::Vector3d eta (r,p,y);
     Eigen::Vector3d eo = _deta - eta;
 
+    ROS_INFO_STREAM("eo: " << eo[0] << ", " << eo[1] << ", " << eo[2]); //////
+
     // Transform angular velocity from body frame to worldNED frame
     Eigen::Vector3d angVel (twist.angular.x, twist.angular.y, twist.angular.z);
     angVel = _Rb * angVel;
 
     // Compute angular velocity error
     Eigen::Vector3d eod = deta_d - angVel;
+    ROS_INFO_STREAM("des_eta_d: " << deta_d[0] << ", " << deta_d[1] << ", " << deta_d[2]); //////
+    ROS_INFO_STREAM("angVel: " << angVel[0] << ", " << angVel[1] << ", " << angVel[2]); //////
+    ROS_INFO_STREAM("eod: " << eod[0] << ", " << eod[1] << ", " << eod[2]); //////
 
     // Compute tau_tilde
     Eigen::Matrix<double,6,1> e;
@@ -150,6 +167,7 @@ void Controller::_innerLoop(){
 
     // Compute tau
     _tau = _Ib*Q*tau + Q.inverse().transpose() * C * angVel;
+    ROS_INFO_STREAM("tau: " << tau[0] << ", " << tau[1] << ", " << tau[2]); //////
 }
 
 
@@ -167,6 +185,7 @@ void Controller::run(){
             if(!_started){
                 _startTime = ros::Time::now();
                 _started = true;
+                ROS_INFO("STARTING NOW!");
             }
 
             _getCurrentTrajPoint();
@@ -174,7 +193,7 @@ void Controller::run(){
             _innerLoop();       // compute tau
 
             // Build command msg and publish it
-            cmd.force.z = _uT;
+            cmd.force.z = - _uT;
             cmd.torque.x = _tau[0];
             cmd.torque.y = _tau[1];
             cmd.torque.z = _tau[2];
@@ -190,6 +209,35 @@ void Controller::run(){
 
 int main(int argc, char **argv){
     ros::init(argc, argv, "hier_controller");
+
+    ///////////// TEST
+    LP2Filter<double> filter;
+    double *sig = new double[100];
+    double *f, *d, *dd;
+
+    for (int i=0; i < 100; ++i){
+        sig[i] = 1.0;
+    }
+
+    filter.filter(sig, 100, 0.01, 100, 100, 0, 0);
+    f = filter.filtered();
+    d = filter.first();
+    dd = filter.second();
+
+    ROS_INFO("Filtered signal: ");
+    for(int i=0; i < 100; ++i)
+        ROS_INFO_STREAM(f[i]);
+
+    ROS_INFO("First derivative: ");
+    for(int i=0; i < 100; ++i)
+        ROS_INFO_STREAM(d[i]);
+    
+    ROS_INFO("Second derivative: ");
+    for(int i=0; i < 100; ++i)
+        ROS_INFO_STREAM(dd[i]);
+    //////////////////
+
+
     Controller ctrl;
     ctrl.run();
     return 0;

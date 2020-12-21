@@ -36,10 +36,11 @@ public:
      * Parameters:
      *  - signal: the signal to filter, as a pointer to the first element of the array
      *  - length: number of samples in the signal array
+     *  - sampleTime: signal sample time
      *  - k1, k2: filter's bandwidths
      *  - cond1, cond2: initial conditions
      */
-    void filter(T* signal, int length, double k1, double k2, T cond0, T cond2);
+    void filter(T* signal, unsigned int length, double sampleTime, double k1, double k2, T cond1, T cond2);
 
     // Set initial condition
     void setInitCond(T cond1, T cond2);
@@ -48,7 +49,11 @@ public:
     void setBandwidth(double k1, double k2);
 
     // Set initial condition and bandwidth
-    void initFilterStep(double k1, double k2, T cond1, T cond2);
+    void initFilterStep(double sampleTime, double k1, double k2, T cond1, T cond2);
+
+    void setSampleTime(double t);
+
+    void reset();
 
     /*
      * Compute a single filter step. Before calling this, initialize the filter
@@ -64,8 +69,12 @@ private:
     T *_f;                      // Filtered signal
     T *_d, *_dd;                // First and second derivatives
     T _stepF, _stepD, _stepDD;  // Filtered signal and derivatives
-    T _intOut1, _intOut2;       // Output of integrals (initial cond at t=0)
+    T _x1, _x2;                 // Integrator state
+    T _init1, _init2;           // Integrator initial state
+    T _intOut2;
     double _k1, _k2;            // Bandwidths
+    double _t;                  // Sample time
+    bool _first;                // True if it's the first computation
 
 };
 

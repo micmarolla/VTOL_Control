@@ -49,7 +49,7 @@ private:
     Eigen::Matrix3d _Rb;
     bool _odomReady;
 
-    Eigen::Vector3d _deta;//double _dRoll, _dPitch, _dYaw;    
+    Eigen::Vector3d _deta;
     Eigen::Vector3d _mud;
     double _uT;
     Eigen::Vector3d _tau;
