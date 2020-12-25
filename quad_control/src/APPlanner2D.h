@@ -10,10 +10,6 @@
 
 using namespace std;
 
-// Column vector of 6 double
-typedef Eigen::Matrix<double, 4, 1> Vector4d;
-
-
 /*
  * APPlanner2D realizes path planning via artificial potentials method, for a 2D
  * known environment. The planning is realized considering the virtual force
@@ -50,7 +46,7 @@ private:
      * Compute position and orientation error, between actual and desired pose.
      * The orientation error is computed considering RPY angles.
      */
-    Vector4d _computeError(quad_control::UAVPose q, quad_control::UAVPose qd);
+    Eigen::Vector4d _computeError(quad_control::UAVPose q, quad_control::UAVPose qd);
 
     /*
      * Compute next configuration using Euler integration: qnext = q + ft*T.
@@ -58,7 +54,7 @@ private:
      *  - q: robot pose
      *  - ft: total force acting on the robot
      */
-    quad_control::UAVPose _eulerIntegration(quad_control::UAVPose q, Vector4d ft);
+    quad_control::UAVPose _eulerIntegration(quad_control::UAVPose q, Eigen::Vector4d ft);
 
     /*
      * Compute the virtual forces applied on the robot, via the artificial
@@ -67,14 +63,14 @@ private:
      *  - q: robot pose
      *  - e: error
      */
-    Vector4d _computeForce(quad_control::UAVPose q, Vector4d e);
+    Eigen::Vector4d _computeForce(quad_control::UAVPose q, Eigen::Vector4d e);
         
     /*
      * Compute repulsive forces acting on the robot.
      * Parameters:
      *  - rx, ry: robot position (in meters)
      */
-    Vector4d _computeRepulsiveForce(double rx, double ry);
+    Eigen::Vector4d _computeRepulsiveForce(double rx, double ry);
 
 
 private:

@@ -3,6 +3,7 @@
 
 #include "ros/ros.h"
 #include <Eigen/Dense>
+#include <tf/transform_listener.h>
 #include "quad_control/UAVPose.h"
 #include "geometry_msgs/Accel.h"
 #include "nav_msgs/Odometry.h"
@@ -42,6 +43,8 @@ private:
     ros::Time _startTime;
     bool _started, _completed;
 
+    bool _hovering;
+
     quad_control::UAVPose _dp;              // Desired pos
     geometry_msgs::Accel _dv, _da;          // Desired vel and acc
 
@@ -55,6 +58,7 @@ private:
     Eigen::Vector3d _tau;
 
     LP2Filter<Eigen::Vector2d> _filter;     // Low-pass 2nd order filter
+
 
     void _getCurrentTrajPoint();
     void _innerLoop();
