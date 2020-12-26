@@ -179,7 +179,7 @@ void APPlanner2D::plan(quad_control::PlanRequestPtr req){
     v.linear.x = v.linear.y = v.linear.z = 0;
     v.angular.x = v.angular.y = v.angular.z = 0;
     trajectory.p.push_back(trajectory.p.back());
-    trajectory.v.pop_back();
+    trajectory.v.push_back(v);
     trajectory.a.push_back(v);  // Twice, for having the same number of points
     trajectory.a.push_back(v);
 

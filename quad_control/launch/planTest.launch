@@ -50,13 +50,17 @@
 
   </group>
 
-    <node pkg="quad_control" type="Controller" name="Controller" output="screen">
+    <node pkg="quad_control" type="Controller" name="Controller" output="log">
         <param name="kp"    type="double" value="10.0"/>
-        <param name="kpv"   type="double" value="5.0"/>
-        <param name="ke"    type="double" value="10.0"/>
-        <param name="kev"   type="double" value="5.0"/>
-        <param name="k1"    type="double" value="1000.0"/>
-        <param name="k2"    type="double" value="1000.0"/>
+        <param name="kpv"   type="double" value="10.0"/>
+        <param name="ke"    type="double" value="1.0"/>
+        <param name="kev"   type="double" value="1.0"/>
+        <!--<param name="kpi"   type="double" value="0.1"/>
+        <param name="kpiv"  type="double" value="0.01"/>
+        <param name="kei"   type="double" value="0.1"/>
+        <param name="keiv"  type="double" value="0.01"/>-->
+        <param name="k1"    type="double" value="1000"/>
+        <param name="k2"    type="double" value="10"/>
     </node>
 
     <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen">
@@ -71,7 +75,7 @@
         <param name="startZ" type="double" value="0.0"/>
         <param name="endX"   type="double" value="-6.0"/>
         <param name="endY"   type="double" value="-6.0"/>
-        <param name="endZ"   type="double" value="-1.5"/>
+        <param name="endZ"   type="double" value="-1.0"/>
     </node>
 
     <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="screen">

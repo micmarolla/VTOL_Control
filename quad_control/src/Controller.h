@@ -34,9 +34,10 @@ private:
 
     double _m;                              // Mass
     Eigen::Matrix3d _Ib;                    // Inertia
-    Eigen::Matrix<double,3,6> _Kp, _Ke;     // Gains
+    Eigen::Matrix<double,3,6> _Kp, _Ke;     // Proportional gains
+    Eigen::Matrix<double,3,6> _Kpi, _Kei;   // Integral gains
     double _rate;
-    
+
     quad_control::Trajectory _traj;         // Trajectory
     bool _trajReady;
 
@@ -52,6 +53,7 @@ private:
     Eigen::Matrix3d _Rb;
     bool _odomReady;
 
+    Eigen::Matrix<double,6,1> _epInt, _eoInt;   // Integral
     Eigen::Vector3d _deta;
     Eigen::Vector3d _mud;
     double _uT;
