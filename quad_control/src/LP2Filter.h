@@ -51,8 +51,10 @@ public:
     // Set initial condition and bandwidth
     void initFilterStep(double sampleTime, double k1, double k2, T cond1, T cond2);
 
+    // Set filter sample time
     void setSampleTime(double t);
 
+    // Reset the filter.
     void reset();
 
     /*
@@ -64,6 +66,10 @@ public:
      */
     void filterStep(T signal);
 
+    /*
+     * Filter signal value 'steps' times.
+     * Greater steps values leads to smoother outputs.
+     */
     void filterSteps(T signal, int steps);
 
 
@@ -73,7 +79,7 @@ private:
     T _stepF, _stepD, _stepDD;  // Filtered signal and derivatives
     T _x1, _x2;                 // Integrator state
     T _init1, _init2;           // Integrator initial state
-    T _intOut2;
+    T _intOut2;                 // Output of the second integrator
     double _k1, _k2;            // Bandwidths
     double _t;                  // Sample time
     bool _first;                // True if it's the first computation

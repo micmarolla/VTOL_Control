@@ -5,6 +5,7 @@
 
 using namespace Eigen;
 
+// Compute skew-symmetric matrix of vector v
 Matrix3d skew(Vector3d v){
     Matrix3d s;
     s <<    0,      -v[2],  v[1],

@@ -9,14 +9,11 @@ MapAnalyzer::MapAnalyzer(){
     _visited = 0;
 }
 
-
 MapAnalyzer::~MapAnalyzer(){
     for (auto chunk : this->_chunks)
         _deleteTree(chunk);
-
     delete this->_visited;
 }
-
 
 void MapAnalyzer::_deleteTree(Chunk *root){
     if(root->left)  _deleteTree(root->left);
@@ -29,7 +26,7 @@ void MapAnalyzer::_deleteTree(Chunk *root){
 void MapAnalyzer::_fillTree(Chunk *root, int index){
     if(!this->_map || !this->_visited)
         return;
-    
+
     this->_visited[index] = true;
     if(this->_map[index] < 50)
         return;
@@ -73,6 +70,7 @@ void MapAnalyzer::setMap(nav_msgs::OccupancyGrid &grid){
     this->setMap(&grid.data[0], grid.info.width, grid.info.height);
 }
 
+
 void MapAnalyzer::setMap(int8_t *map, int w, int h){
     this->_map = map;
     int size = w*h;
@@ -99,19 +97,19 @@ void MapAnalyzer::scan(){
     // Scan the map
     for (int r=_h-1; r>=0; --r){
         for (int c=0; c < _w; ++c){
-            int i = r*_w + c;
+            int i = r * _w + c;
 
             if (this->_map[i] < 50 || this->_visited[i]){
                 this->_visited[i] = true;
                 continue;
             }
-    
+
             // Fill tree
             Chunk *obst = new Chunk;
             obst->x = i % _w;
             obst->y = i / _w;
             this->_fillTree(obst, i);
-            
+
             this->_chunks.push_back(obst);
         }
     }
@@ -127,7 +125,7 @@ Chunk* MapAnalyzer::_computeChunkDist(Chunk *chunk, int rx, int ry){
     Chunk *best = chunk;
     Chunk *temp = 0;
     chunk->dist2 = pow(chunk->x - rx, 2) + pow(chunk->y - ry, 2);
-    
+
     if(chunk->left){
         temp = _computeChunkDist(chunk->left, rx, ry);
         if(temp->dist2 < best->dist2)
@@ -156,7 +154,6 @@ vector<Chunk*> MapAnalyzer::getObjAtMinDist(int rx, int ry){
     // Compute distances
     for (auto chunk : this->_chunks)
         mins.push_back(_computeChunkDist(chunk, rx, ry));
-    
+
     return mins;
 }
-

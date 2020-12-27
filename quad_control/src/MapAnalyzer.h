@@ -7,7 +7,7 @@
 
 using namespace std;
 
-/* 
+/*
  * Chunk is a tree-like structure, where each node has three child (left, right,
  * down). Used to detect and store obstacles in the map. Since the map is
  * scanned from top-left corner to bottom-right corner, the 'up' node is not
@@ -80,7 +80,7 @@ private:
     bool _mapReady;             // True if map has been loaded
     bool _scanned;              // True if map has been scanned
     int _w, _h;                 // Map's width and height
-    bool *_visited;
+    bool *_visited;             // Bool map: 1 = visited, 0 = not visited
 
     /*
      * Starting from the given root chunk, fill the tree recursively.

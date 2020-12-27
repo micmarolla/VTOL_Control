@@ -1,5 +1,6 @@
 #include "Controller.h"
 #include <cmath>
+#include <tf/tf.h>
 #include <tf/LinearMath/Matrix3x3.h>
 #include <tf_conversions/tf_eigen.h>
 #include "geometry_msgs/Wrench.h"
@@ -7,10 +8,12 @@
 
 #define GRAVITY 9.81
 
+using namespace Eigen;
+
 Controller::Controller() : _nh("~"){
     // Retrieve params. Default values are for AscTec Hummingbird UAV
     _m = _nh.param<double>("m", 0.68);
-    _Ib = Eigen::Matrix3d::Identity();
+    _Ib = Matrix3d::Identity();
     _Ib(0,0) = _nh.param<double>("Ibx", 0.007);
     _Ib(1,1) = _nh.param<double>("Iby", 0.007);
     _Ib(2,2) = _nh.param<double>("Ibz", 0.012);
@@ -39,7 +42,6 @@ Controller::Controller() : _nh("~"){
     _odomReady = false;
     _started = false;
     _completed = false;
-    _hovering = false;
 
     double k1 = _nh.param<double>("k1", 100.0);
     double k2 = _nh.param<double>("k2", 100.0);
@@ -81,7 +83,6 @@ void Controller::_getCurrentTrajPoint(){
     if(_traj.p.size() <= steps || _traj.v.size() <= steps || _traj.a.size() <= steps){
         ROS_INFO("Trajectory completed! Entering hovering");
         _completed = true;
-        _hovering = true;
         return;
     }
 
@@ -93,54 +94,44 @@ void Controller::_getCurrentTrajPoint(){
 
 
 void Controller::_outerLoop(){
-    //ROS_INFO("Outer loop");
-
     /* Compute position and linear velocity error */
     geometry_msgs::Pose& pose = this->_odom.pose.pose;
     geometry_msgs::Twist& twist = this->_odom.twist.twist;
 
     // Position error
-    Eigen::Vector3d ep (pose.position.x - _dp.position.x,
+    Vector3d ep (pose.position.x - _dp.position.x,
             pose.position.y - _dp.position.y,
             pose.position.z - _dp.position.z);
-    //ROS_INFO_STREAM("    Position error: " << ep[0] << ", " << ep[1] << ", " << ep[2]); ////
 
     // Transform velocity from body frame to worldNED frame
-    Eigen::Vector3d linVel (twist.linear.x, twist.linear.y, twist.linear.z);
+    Vector3d linVel (twist.linear.x, twist.linear.y, twist.linear.z);
     linVel = _Rb * linVel;
 
     // Linear velocity error
-    Eigen::Vector3d epd (linVel.x() - _dv.linear.x,
+    Vector3d epd (linVel.x() - _dv.linear.x,
             linVel.y() - _dv.linear.y,
             linVel.z() - _dv.linear.z);
-    //ROS_INFO_STREAM("    Velocity error: " << epd[0] << ", " << epd[1] << ", " << epd[2]); ////
 
     // Compute mu_d
-    Eigen::Matrix<double,6,1> e;
+    Matrix<double,6,1> e;
     e << ep, epd;
     _epInt += e / _rate;
 
-    _mud = -_Kp*e - _Kpi*_epInt + Eigen::Vector3d(_da.linear.x, _da.linear.y, _da.linear.z);
-    //ROS_INFO_STREAM("    mud: " << _mud[0] << ", " << _mud[1] << ", " << _mud[2]); ////
-
+    _mud = -_Kp*e - _Kpi*_epInt + Vector3d(_da.linear.x, _da.linear.y, _da.linear.z);
 
     // Compute outputs
     _uT = _m * sqrt(pow(_mud[0],2) + pow(_mud[1],2) + pow(_mud[2] - GRAVITY,2));
-    //ROS_INFO_STREAM("    uT: " << _uT); ////////
 
     _deta[0] = asin(_m * (_mud[1]*cos(_dp.yaw) - _mud[0]*sin(_dp.yaw)) / _uT);
     _deta[1] = atan2(_mud[0]*cos(_dp.yaw) + _mud[1]*sin(_dp.yaw), _mud[2] - GRAVITY);
     _deta[1] += M_PI * ((_deta[1] > 0) ? -1 : 1);
     _deta[2] = _dp.yaw;
-    //ROS_INFO_STREAM("    des_eta: " << _deta[0] << ", " << _deta[1] << ", " << _deta[2]); //////
 }
 
 
 void Controller::_innerLoop(){
-    //ROS_INFO("Inner loop");
-
     // Compute derivatives of orientation
-    Eigen::Vector3d deta_d, deta_dd;
+    Vector3d deta_d, deta_dd;
     this->_filter.filterSteps(_deta.segment<2>(0), _filterSteps);
     deta_d << _filter.lastFirst(), _dv.angular.z;
     deta_dd << _filter.lastSecond(), _da.angular.z;
@@ -152,14 +143,11 @@ void Controller::_innerLoop(){
     tf::Matrix3x3(tf::Quaternion(pose.orientation.x, pose.orientation.y,
         pose.orientation.z, pose.orientation.w)).getRPY(r,p,y);
 
-    Eigen::Vector3d eta(r,p,y);
-    Eigen::Vector3d eo = eta - _deta;
-
-    //ROS_INFO_STREAM("    eta: " << eta[0] << ", " << eta[1] << ", " << eta[2]); //////
-    //ROS_INFO_STREAM("    eo: " << eo[0] << ", " << eo[1] << ", " << eo[2]); //////
+    Vector3d eta(r,p,y);
+    Vector3d eo = eta - _deta;
 
     // Compute Q matrix
-    Eigen::Matrix3d Q, QT, Q_inv, Q_dot;
+    Matrix3d Q, QT, Q_inv, Q_dot;
     Q << 1,     0,              -sin(eta[0]),
          0,     cos(eta[0]),    cos(eta[1])*sin(eta[0]),
          0,     -sin(eta[0]),   cos(eta[1])*cos(eta[0]);
@@ -169,29 +157,21 @@ void Controller::_innerLoop(){
              0, -sin(eta[0]),   -sin(eta[1])*sin(eta[0])+cos(eta[1])*cos(eta[0]),
              0, -cos(eta[0]),   -sin(eta[1])*cos(eta[0])-cos(eta[1])*sin(eta[0]);
 
-    Eigen::Vector3d omega (twist.angular.x, twist.angular.y, twist.angular.z);
-    Eigen::Vector3d eta_d = Q_inv * omega;
-    Eigen::Vector3d eod = eta_d - deta_d;
-    //ROS_INFO_STREAM("    omega: " << omega[0] << ", " << omega[1] << ", " << omega[2]);
-    //ROS_INFO_STREAM("    eta_d: " << eta_d[0] << ", " << eta_d[1] << ", " << eta_d[2]);
-    //ROS_INFO_STREAM("    des_eta_d: " << deta_d[0] << ", " << deta_d[1] << ", " << deta_d[2]);
-    //ROS_INFO_STREAM("    eod: " << eod[0] << ", " << eod[1] << ", " << eod[2]);
-    //ROS_INFO_STREAM("    des_eta_dd: " << deta_dd[0] << ", " << deta_dd[1] << ", " << deta_dd[2]);
+    Vector3d omega (twist.angular.x, twist.angular.y, twist.angular.z);
+    Vector3d eta_d = Q_inv * omega;
+    Vector3d eod = eta_d - deta_d;
 
-    Eigen::Matrix<double,6,1> e;
+    Matrix<double,6,1> e;
     e << eo, eod;
     _eoInt += e / _rate;
 
     // Compute Coriolis matrix
-    Eigen::Matrix3d C = QT * skew(omega) * _Ib * Q  +  QT * _Ib * Q_dot;
-
+    Matrix3d C = QT * skew(omega) * _Ib * Q  +  QT * _Ib * Q_dot;
 
     // Compute tau
-    Eigen::Vector3d tauTilde = -_Ke*e - _Kei*_eoInt + deta_dd;
+    Vector3d tauTilde = -_Ke*e - _Kei*_eoInt + deta_dd;
     _tau = _Ib*Q*tauTilde + Q.inverse().transpose() * C * eta_d;
-    //ROS_INFO_STREAM("    tauTilde: " << tauTilde[0] << ", " << tauTilde[1] << ", " << tauTilde[2]); //////
 }
-
 
 void Controller::run(){
     ROS_INFO("VTOL UAV Controller started.");
@@ -220,11 +200,7 @@ void Controller::run(){
             cmd.torque.y = _tau[1];
             cmd.torque.z = _tau[2];
 
-            //ROS_INFO_STREAM("CMD: " << _uT << ", " << _tau[0] << ", " << _tau[1] << ", " << _tau[2]);
-
             _pub.publish(cmd);
-
-            //ROS_INFO("================================================");
         }
 
         r.sleep();

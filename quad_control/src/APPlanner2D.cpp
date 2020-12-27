@@ -1,17 +1,13 @@
 #include "APPlanner2D.h"
 #include <cmath>
-#include <iostream>
 #include <vector>
 #include "geometry_msgs/Accel.h"
-#include <tf/tf.h>
-#include <tf/LinearMath/Matrix3x3.h>
 #include <tf/transform_datatypes.h>
-#include "MapAnalyzer.h"
-#include "quad_control/PlanRequest.h"
 
 #define DEFAULT_STEADY_TIME     1.0     // seconds
 
-using namespace std;
+using namespace quad_control;
+using namespace Eigen;
 
 APPlanner2D::APPlanner2D() : _nh("~"){
     // Retrieve params
@@ -28,7 +24,7 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _done = false;
 
     _sub = _nh.subscribe("/planRequest", 0, &APPlanner2D::plan, this);
-    _pub = _nh.advertise<quad_control::Trajectory>("/trajectory", 0, true);
+    _pub = _nh.advertise<Trajectory>("/trajectory", 0, true);
 
     if(_debugPath)
         _pathPub = _nh.advertise<nav_msgs::Path>("/plannedPath", 0, false);
@@ -42,18 +38,13 @@ void APPlanner2D::setMap(nav_msgs::OccupancyGrid &map){
 }
 
 
-Eigen::Vector4d APPlanner2D::_computeError(quad_control::UAVPose q, quad_control::UAVPose qd){
-    Eigen::Vector4d e;
-    e << qd.position.x - q.position.x, qd.position.y - q.position.y,
-            qd.position.z - q.position.z, qd.yaw - q.yaw;
-    return e;
+Vector4d APPlanner2D::_computeError(UAVPose q, UAVPose qd){
+    return Vector4d (qd.position.x - q.position.x, qd.position.y - q.position.y,
+            qd.position.z - q.position.z, qd.yaw - q.yaw);
 }
 
 
-
-quad_control::UAVPose APPlanner2D::_eulerIntegration(quad_control::UAVPose q,
-        Eigen::Vector4d ft){
-
+UAVPose APPlanner2D::_eulerIntegration(UAVPose q, Vector4d ft){
     q.position.x = q.position.x + _sampleTime * ft[0];
     q.position.y = q.position.y + _sampleTime * ft[1];
     q.position.z = q.position.z + _sampleTime * ft[2];
@@ -63,28 +54,25 @@ quad_control::UAVPose APPlanner2D::_eulerIntegration(quad_control::UAVPose q,
 }
 
 
-Eigen::Vector4d APPlanner2D::_computeForce(quad_control::UAVPose q, Eigen::Vector4d e){
-    Eigen::Vector4d fa, fr;
+Vector4d APPlanner2D::_computeForce(UAVPose q, Vector4d e){
+    Vector4d fa, fr;
 
-    /* Attractive potentials */
+    // Attractive potentials
     if (e.norm() <= 1)
-        // Paraboloid
-        fa = this->_ka * e;
+        fa = this->_ka * e;                 // Paraboloid
     else
-        // Conical
-        fa = this->_ka * e / e.norm();
+        fa = this->_ka * e / e.norm();      // Conical
 
-    /* Repulsive potentials */
+    // Repulsive potentials
     fr = _computeRepulsiveForce(q.position.x, q.position.y);
 
     return fa + fr;
 }
 
 
-Eigen::Vector4d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
-    Eigen::Vector4d fr;
-    fr << 0,0,0,0;
-    Eigen::Vector2d fri;
+Vector4d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
+    Vector4d fr (0,0,0,0);
+    Vector2d fri;
     double fri_mod = 0;
 
     // Retrieve robot coordinates in the map cell reference
@@ -100,7 +88,7 @@ Eigen::Vector4d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
 
         // ... compute repulsive force
         fri_mod = (_kr / obj->dist2) * pow(1/sqrt(obj->dist2) - 1/_eta, _gamma - 1);
-        fri = fri_mod * Eigen::Vector2d(rxCell - obj->x, ryCell - obj->y).normalized();
+        fri = fri_mod * Vector2d(rxCell - obj->x, ryCell - obj->y).normalized();
 
         fr[0] += fri[0];
         fr[1] += fri[1];
@@ -110,14 +98,14 @@ Eigen::Vector4d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
 }
 
 
-void APPlanner2D::_planSegment(quad_control::UAVPose qs, quad_control::UAVPose qg,
-        double steadyTime, quad_control::Trajectory& trajectory, nav_msgs::Path& path){
+void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
+        Trajectory& trajectory, nav_msgs::Path& path){
 
-    quad_control::UAVPose q = qs;
+    UAVPose q = qs;
     geometry_msgs::Accel v;
     v.angular.x = v.angular.y = 0;
 
-    Eigen::Vector4d err, ft, ftPrev;
+    Vector4d err, ft, ftPrev;
     bool done = false, first = true;
 
     while (!done){
@@ -157,7 +145,7 @@ void APPlanner2D::_planSegment(quad_control::UAVPose qs, quad_control::UAVPose q
         }
 
         // Check if goal has been reached
-        done = (Eigen::Vector3d(err[0],err[1],err[2]).norm() <= this->_p_eps
+        done = (Vector3d(err[0],err[1],err[2]).norm() <= this->_p_eps
                 && err[3] <= this->_o_eps);
     }
 
@@ -173,7 +161,7 @@ void APPlanner2D::_planSegment(quad_control::UAVPose qs, quad_control::UAVPose q
 }
 
 
-void APPlanner2D::plan(quad_control::PlanRequestPtr req){
+void APPlanner2D::plan(PlanRequestPtr req){
     ROS_INFO("APPlanner_2D: path planning requested.");
 
     // Check number of points in the trajectory
@@ -187,15 +175,17 @@ void APPlanner2D::plan(quad_control::PlanRequestPtr req){
         this->setMap(req->map);
 
     // Check that repulsive forces in q_goal are null
-    // ===== ToDo: Need to check at each position?
-    Eigen::Vector4d fr_g = _computeRepulsiveForce(req->q.back().position.x, req->q.back().position.y);
-    if(fr_g[0] != 0 || fr_g[1] != 0){
-        ROS_ERROR("Repulsive forces in goal configuration are not null. Planning is not possible");
-        return;
+    Vector4d fr_g;
+    for(auto q : req->q){
+        fr_g = _computeRepulsiveForce(q.position.x, q.position.y);
+        if(fr_g[0] != 0 || fr_g[1] != 0){
+            ROS_ERROR("Repulsive forces in one of goal configurations are not null. Planning is not possible");
+            return;
+        }
     }
 
     // Build path msg
-    quad_control::Trajectory trajectory;
+    Trajectory trajectory;
     _path.header.stamp = ros::Time::now();
     _path.header.frame_id = "worldNED";
 

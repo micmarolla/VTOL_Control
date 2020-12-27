@@ -10,7 +10,8 @@
 #include "quad_control/Trajectory.h"
 #include "MapAnalyzer.h"
 
-using namespace std;
+using namespace quad_control;
+using namespace Eigen;
 
 /*
  * APPlanner2D realizes path planning via artificial potentials method, for a 2D
@@ -32,15 +33,16 @@ public:
      */
     void setMap(nav_msgs::OccupancyGrid &map);
 
-    /* ---- REWRITE THIS ----
+    /*
      * Plan the trajectory.
-     * Notice that, after the service is called in the first place, the map is
-     * stored. So, you can use again the same map, setting to 0 the width or
-     * height in req.map.info. In this way, the map is not analyzed again, and
-     * execution time is saved.
+     * After the planning is made for the first time, the map is stored
+     * You can use again the same map, setting to 0 the width or height in
+     * req.map.info. In this way, the map is not analyzed again, and execution
+     * time is saved.
      */
-    void plan(quad_control::PlanRequestPtr req);
+    void plan(PlanRequestPtr req);
 
+    // Main loop
     void run();
 
 
@@ -50,7 +52,7 @@ private:
      * Compute position and orientation error, between actual and desired pose.
      * The orientation error is computed considering RPY angles.
      */
-    Eigen::Vector4d _computeError(quad_control::UAVPose q, quad_control::UAVPose qd);
+    Vector4d _computeError(UAVPose q, UAVPose qd);
 
     /*
      * Compute next configuration using Euler integration: qnext = q + ft*T.
@@ -58,7 +60,7 @@ private:
      *  - q: robot pose
      *  - ft: total force acting on the robot
      */
-    quad_control::UAVPose _eulerIntegration(quad_control::UAVPose q, Eigen::Vector4d ft);
+    UAVPose _eulerIntegration(UAVPose q, Vector4d ft);
 
     /*
      * Compute the virtual forces applied on the robot, via the artificial
@@ -67,17 +69,23 @@ private:
      *  - q: robot pose
      *  - e: error
      */
-    Eigen::Vector4d _computeForce(quad_control::UAVPose q, Eigen::Vector4d e);
+    Vector4d _computeForce(UAVPose q, Vector4d e);
 
     /*
      * Compute repulsive forces acting on the robot.
      * Parameters:
      *  - rx, ry: robot position (in meters)
      */
-    Eigen::Vector4d _computeRepulsiveForce(double rx, double ry);
+    Vector4d _computeRepulsiveForce(double rx, double ry);
 
-    void _planSegment(quad_control::UAVPose qs, quad_control::UAVPose qg,
-        double steadyTime, quad_control::Trajectory& trajectory, nav_msgs::Path& path);
+    /*
+     * Plan a trajectory along the segment between qs and qg.
+     * The trajectory stays in qg for a time equal to steadyTime [seconds].
+     * The output is appended to the msg trajectory and path (the latter used
+     * for debug).
+     */
+    void _planSegment(UAVPose qs, UAVPose qg, double steadyTime,
+        Trajectory& trajectory, nav_msgs::Path& path);
 
 
 private:

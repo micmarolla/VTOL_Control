@@ -1,5 +1,4 @@
 #include "LP2Filter.h"
-#include "ros/console.h"
 
 template <typename T>
 LP2Filter<T>::LP2Filter(){
