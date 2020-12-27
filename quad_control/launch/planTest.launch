@@ -50,7 +50,7 @@
 
   </group>
 
-    <node pkg="quad_control" type="Controller" name="Controller" output="log">
+    <node pkg="quad_control" type="Controller" name="Controller" output="screen">
         <param name="kp"    type="double" value="10.0"/>
         <param name="kpv"   type="double" value="10.0"/>
         <param name="ke"    type="double" value="1.0"/>
@@ -64,21 +64,20 @@
     </node>
 
     <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen">
-        <!--<param name="startX" type="double" value="-6.0"/>
-        <param name="startY" type="double" value="3.0"/>
-        <param name="startZ" type="double" value="0.0"/>
-        <param name="endX"   type="double" value="6.0"/>
-        <param name="endY"   type="double" value="6.0"/>
-        <param name="endZ"   type="double" value="0.0"/>-->
-        <param name="startX" type="double" value="-6.0"/>
-        <param name="startY" type="double" value="-6.0"/>
-        <param name="startZ" type="double" value="0.0"/>
-        <param name="endX"   type="double" value="-6.0"/>
-        <param name="endY"   type="double" value="-6.0"/>
-        <param name="endZ"   type="double" value="-1.0"/>
+        <param name="n"  type="int"    value="3"/>
+        <param name="x0" type="double" value="-6.0"/>
+        <param name="y0" type="double" value="-6.0"/>
+        <param name="z0" type="double" value="0.0"/>
+        <param name="x1" type="double" value="-6.0"/>
+        <param name="y1" type="double" value="-6.0"/>
+        <param name="z1" type="double" value="-1.0"/>
+        <param name="x2" type="double" value="0.0"/>
+        <param name="y2" type="double" value="0.0"/>
+        <param name="z2" type="double" value="-1.0"/>
     </node>
 
     <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="screen">
+        <param name="rate"          type="double"   value="1"/>
         <param name="debugPath"     type="bool"     value="true"/>
         <param name="sampleTime"    type="double"   value="0.01"/>
         <param name="eta"           type="double"   value="1.0"/>

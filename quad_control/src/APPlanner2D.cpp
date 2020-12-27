@@ -2,19 +2,20 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
-#include "nav_msgs/Path.h"
 #include "geometry_msgs/Accel.h"
 #include <tf/tf.h>
 #include <tf/LinearMath/Matrix3x3.h>
 #include <tf/transform_datatypes.h>
 #include "MapAnalyzer.h"
 #include "quad_control/PlanRequest.h"
-#include "quad_control/Trajectory.h"
+
+#define DEFAULT_STEADY_TIME     1.0     // seconds
 
 using namespace std;
 
 APPlanner2D::APPlanner2D() : _nh("~"){
     // Retrieve params
+    _rate       = _nh.param<double>("rate", 1.0);
     _ka         = _nh.param<double>("ka", 1.0);
     _kr         = _nh.param<double>("kr", 1.0);
     _eta        = _nh.param<double>("eta", 1.0);
@@ -24,11 +25,13 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _sampleTime = _nh.param<double>("sampleTime", 0.01);
     _debugPath  = _nh.param<bool>("debugPath", true);
 
+    _done = false;
+
     _sub = _nh.subscribe("/planRequest", 0, &APPlanner2D::plan, this);
     _pub = _nh.advertise<quad_control::Trajectory>("/trajectory", 0, true);
 
     if(_debugPath)
-        _pathPub = _nh.advertise<nav_msgs::Path>("/plannedPath", 0, true);
+        _pathPub = _nh.advertise<nav_msgs::Path>("/plannedPath", 0, false);
 }
 
 
@@ -107,27 +110,10 @@ Eigen::Vector4d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
 }
 
 
-void APPlanner2D::plan(quad_control::PlanRequestPtr req){
-    ROS_INFO("APPlanner_2D: path planning requested.");
+void APPlanner2D::_planSegment(quad_control::UAVPose qs, quad_control::UAVPose qg,
+        double steadyTime, quad_control::Trajectory& trajectory, nav_msgs::Path& path){
 
-     // If no map is present, or the current map has been updated
-    if(!this->_mapAnalyzer.ready() || (req->map.info.width > 0 && req->map.info.height > 0))
-        this->setMap(req->map);
-
-    // Check that repulsive forces in q_goal are null
-    Eigen::Vector4d fr_g = _computeRepulsiveForce(req->qg.position.x, req->qg.position.y);
-    if(fr_g[0] != 0 || fr_g[1] != 0){
-        ROS_ERROR("Repulsive forces in goal configuration are not null. Planning is not possible");
-        return;
-    }
-
-    // Build path msg
-    quad_control::Trajectory trajectory;
-    nav_msgs::Path path;
-    path.header.stamp = ros::Time::now();
-    path.header.frame_id = "worldNED";
-
-    quad_control::UAVPose q = req->qs;
+    quad_control::UAVPose q = qs;
     geometry_msgs::Accel v;
     v.angular.x = v.angular.y = 0;
 
@@ -136,11 +122,11 @@ void APPlanner2D::plan(quad_control::PlanRequestPtr req){
 
     while (!done){
         // Compute error, force, integrate and add to path
-        err = _computeError(q, req->qg);
+        err = _computeError(q, qg);
         ft = _computeForce(q, err);
         q = _eulerIntegration(q, ft);
 
-        // Accelerations
+        // Accelerations: simple numerical derivation
         if(first)
             first = false;
         else{
@@ -175,27 +161,82 @@ void APPlanner2D::plan(quad_control::PlanRequestPtr req){
                 && err[3] <= this->_o_eps);
     }
 
-    // Append final entry with null velocity and acceleration, and same position
-    v.linear.x = v.linear.y = v.linear.z = 0;
-    v.angular.x = v.angular.y = v.angular.z = 0;
-    trajectory.p.push_back(trajectory.p.back());
-    trajectory.v.push_back(v);
-    trajectory.a.push_back(v);  // Twice, for having the same number of points
-    trajectory.a.push_back(v);
+    // Append final entries with null velocity and acceleration, and same position
+    for(int i=0; i < ceil(steadyTime / _sampleTime); ++i){
+        v.linear.x = v.linear.y = v.linear.z = 0;
+        v.angular.x = v.angular.y = v.angular.z = 0;
+        trajectory.p.push_back(trajectory.p.back());
+        trajectory.v.push_back(v);
+        trajectory.a.push_back(v);  // Twice, for having the same number of points
+        trajectory.a.push_back(v);
+    }
+}
+
+
+void APPlanner2D::plan(quad_control::PlanRequestPtr req){
+    ROS_INFO("APPlanner_2D: path planning requested.");
+
+    // Check number of points in the trajectory
+    if(req->q.size() <= 1){
+        ROS_ERROR("Number of points in PlanRequest must be at least 2.");
+        return;
+    }
+
+     // If no map is present, or the current map has been updated
+    if(!this->_mapAnalyzer.ready() || (req->map.info.width > 0 && req->map.info.height > 0))
+        this->setMap(req->map);
+
+    // Check that repulsive forces in q_goal are null
+    // ===== ToDo: Need to check at each position?
+    Eigen::Vector4d fr_g = _computeRepulsiveForce(req->q.back().position.x, req->q.back().position.y);
+    if(fr_g[0] != 0 || fr_g[1] != 0){
+        ROS_ERROR("Repulsive forces in goal configuration are not null. Planning is not possible");
+        return;
+    }
+
+    // Build path msg
+    quad_control::Trajectory trajectory;
+    _path.header.stamp = ros::Time::now();
+    _path.header.frame_id = "worldNED";
+
+    // Plan all the segments
+    double steadyT = DEFAULT_STEADY_TIME;
+    for(int i=1; i < req->q.size(); ++i){
+        // Select steady time
+        if(i-1 < req->steadyTime.size())
+            steadyT = req->steadyTime[i-1];
+        else
+            steadyT = DEFAULT_STEADY_TIME;
+
+        _planSegment(req->q[i-1], req->q[i], steadyT, trajectory, _path);
+    }
 
     trajectory.sampleTime = this->_sampleTime;
 
     if(_debugPath)
-        this->_pathPub.publish(path);
+        this->_pathPub.publish(_path);
     this->_pub.publish(trajectory);
 
+    _done = true;
+
     ROS_INFO("APPlanner_2D: path planning successfully completed.");
+}
+
+
+void APPlanner2D::run(){
+    ros::Rate rate(_rate);
+    while(ros::ok()){
+        if(_done && _debugPath)
+            _pathPub.publish(_path);
+        rate.sleep();
+        ros::spinOnce();
+    }
 }
 
 
 int main(int argc, char **argv){
     ros::init(argc, argv, "2d_planner");
     APPlanner2D planner;
-    ros::spin();
+    planner.run();
     return 0;
 }

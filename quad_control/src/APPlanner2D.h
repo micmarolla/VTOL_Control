@@ -3,9 +3,11 @@
 
 #include "ros/ros.h"
 #include "quad_control/UAVPose.h"
+#include "nav_msgs/Path.h"
 #include "nav_msgs/MapMetaData.h"
 #include <Eigen/Dense>
 #include "quad_control/PlanRequest.h"
+#include "quad_control/Trajectory.h"
 #include "MapAnalyzer.h"
 
 using namespace std;
@@ -39,6 +41,8 @@ public:
      */
     void plan(quad_control::PlanRequestPtr req);
 
+    void run();
+
 
 private:
 
@@ -64,7 +68,7 @@ private:
      *  - e: error
      */
     Eigen::Vector4d _computeForce(quad_control::UAVPose q, Eigen::Vector4d e);
-        
+
     /*
      * Compute repulsive forces acting on the robot.
      * Parameters:
@@ -72,12 +76,16 @@ private:
      */
     Eigen::Vector4d _computeRepulsiveForce(double rx, double ry);
 
+    void _planSegment(quad_control::UAVPose qs, quad_control::UAVPose qg,
+        double steadyTime, quad_control::Trajectory& trajectory, nav_msgs::Path& path);
+
 
 private:
     ros::NodeHandle _nh;
     ros::Subscriber _sub;
     ros::Publisher _pathPub, _pub;
 
+    double _rate;
     double _ka, _kr;    // Attractive and repulsive forces gain
     double _eta;        // Range of influence
     double _gamma;      // Used for repulsive forces computation, can be 2 or 3
@@ -85,6 +93,9 @@ private:
     double _o_eps;      // if orientation error <= eps, it is assumed error = 0
     double _sampleTime;
     bool _debugPath;    // if true, publish nav_msgs::Path debug msg
+    bool _done;
+
+    nav_msgs::Path _path;
 
     nav_msgs::MapMetaData _mapInfo;
     MapAnalyzer _mapAnalyzer;

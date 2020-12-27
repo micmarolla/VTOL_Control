@@ -1,65 +1,65 @@
 #include "ros/ros.h"
+#include <string>
 #include "nav_msgs/OccupancyGrid.h"
 #include "quad_control/PlanRequest.h"
 #include "quad_control/Trajectory.h"
 
 ros::Publisher pub;
 quad_control::PlanRequest req;
+
 bool ready = false;
+bool pending = false;
+bool done = false;
 
 
 void map_cb(nav_msgs::OccupancyGridConstPtr data){
     if(!ready){
-        ready = true;
         req.map = *data;
-        pub.publish(req);
+        ready = true;
     }
 }
 
 
 void traj_cb(quad_control::TrajectoryConstPtr data){
-    ROS_INFO_STREAM("Positions: " << data->p.size());
-    ROS_INFO_STREAM("Velocities: " << data->v.size());
-    ROS_INFO_STREAM("Accelerations: " << data->a.size());
-
-    ROS_INFO_STREAM("First pos: " << data->p[0].position.x << ", "
-        << data->p[0].position.y << ", " << data->p[0].position.z);
-
-    ROS_INFO_STREAM("First vel: " << data->v[0].linear.x << ", "
-        << data->v[0].linear.y << ", " << data->v[0].linear.z);
-
-    ROS_INFO_STREAM("First accel: " << data->a[0].linear.x << ", "
-        << data->a[0].linear.y << ", " << data->a[0].linear.z);
+    done = true;
 }
 
 
 int main(int argc, char **argv){
     ros::init(argc, argv, "2d_planner_test");
     ros::NodeHandle nh("~");
-    ros::Rate rate(1);
+    ros::Rate rate(10);
     ros::Subscriber sub = nh.subscribe("/map", 0, &map_cb);
     pub = nh.advertise<quad_control::PlanRequest>("/planRequest", 0, true);
 
-    double startX = nh.param<double>("startX", 0.0);
-    double startY = nh.param<double>("startY", 0.0);
-    double startZ = nh.param<double>("startZ", 0.0);
-    double endX   = nh.param<double>("endX",   1.0);
-    double endY   = nh.param<double>("endY",   1.0);
-    double endZ   = nh.param<double>("endZ",   1.0);
+    int n = nh.param<int>("n", 0);
+    if(n < 2){
+        ROS_ERROR("Number of points must be at least 2");
+        return 1;
+    }
 
-    req.qs.position.x = startX;
-    req.qs.position.y = startY;
-    req.qs.position.z = startZ;
-    req.qs.yaw = 0;
+    quad_control::UAVPose q;
+    q.yaw = 0;
 
-    req.qg.position.x = endX;
-    req.qg.position.y = endY;
-    req.qg.position.z = endZ;
-    req.qg.yaw = 0;
+    for(int i=0; i<n; ++i){
+        q.position.x = nh.param<double>("x"+std::to_string(i), 0.0);
+        q.position.y = nh.param<double>("y"+std::to_string(i), 0.0);
+        q.position.z = nh.param<double>("z"+std::to_string(i), 0.0);
+        if(i > 0){
+            double t = nh.param<double>("steadyTime"+std::to_string(i), 1.0);
+            req.steadyTime.push_back(t);
+        }
+        req.q.push_back(q);
+    }
 
-    while(ros::ok()){
+    while(ros::ok() && !done){
+        if(ready && !pending){
+            pending = true;
+            pub.publish(req);
+        }
+
         rate.sleep();
-        ros::spinOnce(); 
+        ros::spinOnce();
     }
 
     return 0;
