@@ -44,6 +44,7 @@ Controller::Controller() : _nh("~"){
     double k1 = _nh.param<double>("k1", 100.0);
     double k2 = _nh.param<double>("k2", 100.0);
     _filter.initFilterStep(0.001, k1, k2, Vector2d::Zero(), Vector2d::Zero());
+    _filterSteps = _nh.param<double>("filterSteps", 1);
 
     _trajSub = _nh.subscribe("/trajectory", 0, &Controller::trajectoryReceived, this);
     _odomSub = _nh.subscribe("/hummingbird/ground_truth/odometryNED", 0, &Controller::odomReceived, this);
@@ -54,8 +55,6 @@ Controller::Controller() : _nh("~"){
 void Controller::trajectoryReceived(quad_control::TrajectoryPtr traj){
     _traj = *traj;
     _trajReady = true;
-    //ROS_INFO_STREAM("Trajectory sizes: " << _traj.p.size() << ", " << _traj.v.size() << ", " << _traj.a.size());
-    //ROS_INFO_STREAM("Last trajectory z,v,a: " << _traj.p.back().position.z << ", " << _traj.v.back().linear.z << ", " << _traj.a.back().linear.z);
 }
 
 void Controller::odomReceived(nav_msgs::OdometryPtr odom){
@@ -121,7 +120,7 @@ void Controller::_outerLoop(){
     e << ep, epd;
     _epInt += e / _rate;
 
-    _mud = -_Kp*e /*- _Kpi*_epInt*/ + Eigen::Vector3d(_da.linear.x, _da.linear.y, _da.linear.z);
+    _mud = -_Kp*e - _Kpi*_epInt + Eigen::Vector3d(_da.linear.x, _da.linear.y, _da.linear.z);
     //ROS_INFO_STREAM("    mud: " << _mud[0] << ", " << _mud[1] << ", " << _mud[2]); ////
 
 
@@ -142,7 +141,7 @@ void Controller::_innerLoop(){
 
     // Compute derivatives of orientation
     Eigen::Vector3d deta_d, deta_dd;
-    this->_filter.filterStep(_deta.segment<2>(0));
+    this->_filter.filterSteps(_deta.segment<2>(0), _filterSteps);
     deta_d << _filter.lastFirst(), _dv.angular.z;
     deta_dd << _filter.lastSecond(), _da.angular.z;
 
@@ -152,7 +151,7 @@ void Controller::_innerLoop(){
     double r,p,y;
     tf::Matrix3x3(tf::Quaternion(pose.orientation.x, pose.orientation.y,
         pose.orientation.z, pose.orientation.w)).getRPY(r,p,y);
-    //Eigen::Vector3d euler = _Rb.eulerAngles(2,1,0);
+
     Eigen::Vector3d eta(r,p,y);
     Eigen::Vector3d eo = eta - _deta;
 
@@ -188,10 +187,9 @@ void Controller::_innerLoop(){
 
 
     // Compute tau
-    Eigen::Vector3d tauTilde = -_Ke*e /*- _Kei*_eoInt*/ + deta_dd;
+    Eigen::Vector3d tauTilde = -_Ke*e - _Kei*_eoInt + deta_dd;
     _tau = _Ib*Q*tauTilde + Q.inverse().transpose() * C * eta_d;
     //ROS_INFO_STREAM("    tauTilde: " << tauTilde[0] << ", " << tauTilde[1] << ", " << tauTilde[2]); //////
-    //ROS_INFO_STREAM("tau: " << _tau[0] << ", " << _tau[1] << ", " << _tau[2]); //////
 }
 
 

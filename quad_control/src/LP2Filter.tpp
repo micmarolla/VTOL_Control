@@ -97,3 +97,9 @@ void LP2Filter<T>::filterStep(T signal){
         _x2 = _x2 + _t * _stepDD;
     }
 }
+
+template <typename T>
+void LP2Filter<T>::filterSteps(T signal, int steps){
+    for (int i=0; i<steps; ++i)
+        this->filterStep(signal);
+}

@@ -60,6 +60,7 @@ private:
     Eigen::Vector3d _tau;
 
     LP2Filter<Eigen::Vector2d> _filter;     // Low-pass 2nd order filter
+    int _filterSteps;
 
 
     void _getCurrentTrajPoint();

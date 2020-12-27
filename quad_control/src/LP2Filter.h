@@ -64,6 +64,8 @@ public:
      */
     void filterStep(T signal);
 
+    void filterSteps(T signal, int steps);
+
 
 private:
     T *_f;                      // Filtered signal
