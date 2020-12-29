@@ -19,12 +19,14 @@ public:
     ~PController(){}
 
 private:
+    bool _enableEstimator;
     double _c0, _k0;                // Estimator params
     Matrix<double,6,1> _Fe;         // Estimated wrench
     Matrix3d _M;
     double _v;
     Matrix3d _Ko, _Do;
     Matrix3d _Kp, _Kd;
+    Matrix<double,6,1> _q_prev;
 
 
     /*

@@ -7,6 +7,7 @@ PController::PController() : Controller(){
     _c0 = _nh.param<double>("c0", 1000.0);
     _k0 = _nh.param<double>("k0", 1000.0);
     _v  = _nh.param<double>("v",  100.0);
+    _enableEstimator = _nh.param<bool>("estimator",  true);
 
     double kp = _nh.param<double>("kp",  100.0);
     _Kp = kp * Matrix3d::Identity();
@@ -17,6 +18,7 @@ PController::PController() : Controller(){
     _Ko = ko * Matrix3d::Identity();
     _Do = _Ko / _v;
 
+    _q_prev << 0,0,0,0,0,0;
     _Fe << 0,0,0,0,0,0;
 }
 
@@ -32,8 +34,11 @@ void PController::_estimateWrench(){
                                         Vector3d::Zero(),       _QT;
     Matrix<double,6,1> G_sigma; G_sigma << 0, 0, -_m*GRAVITY, 0, 0, 0;
 
-    _Fe += _k0*q -
-        (_c0*_Fe + _k0*(C_sigma.transpose()*sigma_d + Delta*u - G_sigma)) / _rate;
+    /*_Fe = _k0*q -
+        (_c0*_Fe + _k0*(C_sigma.transpose()*sigma_d + Delta*u - G_sigma)) / _rate;*/
+    Matrix<double,6,1> X = C_sigma.transpose() * sigma_d + Delta*u - G_sigma;
+    _Fe += _k0 * (q-_q_prev) - (_c0*_Fe + _k0*X)/_rate;
+    _q_prev = q;
 
     ROS_INFO_STREAM("Estimated wrench: " << _Fe[0] << ", " << _Fe[1] << ", "
         << _Fe[2] << ";  " << _Fe[3] << ", " << _Fe[4] << ", " << _Fe[5]);
@@ -63,7 +68,8 @@ void PController::_computeTau(){
 
 void PController::_coreLoop(){
     _M = _QT * _Ib * _Q;
-    _estimateWrench();
+    if (_enableEstimator)
+        _estimateWrench();
     _outerLoop();
     _innerLoop();
 }

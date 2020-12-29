@@ -6,6 +6,10 @@
 #include "geometry_msgs/Wrench.h"
 #include "Utils.h"
 
+#define _P_EPS  0.005
+#define _O_EPS  0.01
+
+
 using namespace Eigen;
 
 Controller::Controller() : _nh("~"){
@@ -105,9 +109,10 @@ void Controller::_getCurrentTrajPoint(){
     ros::Duration elapsed = ros::Time::now() - _startTime;
 
     int steps = int(elapsed.toSec() / _traj.sampleTime);
+    ROS_INFO_STREAM("Trajectory: step " << steps << " of " << _traj.p.size());
 
     if(_traj.p.size() <= steps || _traj.v.size() <= steps || _traj.a.size() <= steps){
-        ROS_INFO("Trajectory completed! Entering hovering");
+        ROS_INFO("Trajectory completed!");
         _completed = true;
         return;
     }
@@ -182,6 +187,8 @@ void Controller::_innerLoop(){
     this->_filter.filterSteps(_deta.head<2>(), _filterSteps);
     _deta_d << _filter.lastFirst(), _dv.angular.z;
     _deta_dd << _filter.lastSecond(), _da.angular.z;
+    ROS_INFO_STREAM("    Filter vel: " << _deta_d[0] << ", " << _deta_d[1] << ", " << _deta_d[2]);
+    ROS_INFO_STREAM("    Filter acc: " << _deta_dd[0] << ", " << _deta_dd[1] << ", " << _deta_dd[2]);
 
     // Compute orientation errors
     Vector3d eo = _eta - _deta;
