@@ -6,8 +6,6 @@
 #include "geometry_msgs/Wrench.h"
 #include "Utils.h"
 
-#define GRAVITY 9.81
-
 using namespace Eigen;
 
 Controller::Controller() : _nh("~"){
@@ -43,6 +41,9 @@ Controller::Controller() : _nh("~"){
     _started = false;
     _completed = false;
 
+    _uT = 0;
+    _tau << 0,0,0;
+
     double k1 = _nh.param<double>("k1", 100.0);
     double k2 = _nh.param<double>("k2", 100.0);
     _filter.initFilterStep(0.001, k1, k2, Vector2d::Zero(), Vector2d::Zero());
@@ -62,10 +63,35 @@ void Controller::trajectoryReceived(quad_control::TrajectoryPtr traj){
 void Controller::odomReceived(nav_msgs::OdometryPtr odom){
     _odom = *odom;
 
+    geometry_msgs::Pose& pose = _odom.pose.pose;
+    geometry_msgs::Twist& twist = _odom.twist.twist;
+
+    /* Position and linear velocity */
+    _p << pose.position.x, pose.position.y, pose.position.z;
+    // Transform velocity from body frame to worldNED frame
+    _p_d << twist.linear.x, twist.linear.y, twist.linear.z;
+    _p_d = _Rb * _p_d;
+
+    /* Orientation and angular velocity */
     // Get current rotation matrix of body frame w.r.t. worldNED frame
-    tf::matrixTFToEigen(tf::Matrix3x3(tf::Quaternion(_odom.pose.pose.orientation.x,
-        _odom.pose.pose.orientation.y, _odom.pose.pose.orientation.z,
-        _odom.pose.pose.orientation.w)), _Rb);
+    tf::Matrix3x3 tfRb (tf::Quaternion(pose.orientation.x, pose.orientation.y,
+        pose.orientation.z, pose.orientation.w));
+    tf::matrixTFToEigen(tfRb, _Rb);
+
+    // Retrieve rpy angles
+    double r,p,y;
+    tfRb.getRPY(r,p,y);
+    _eta << r,p,y;
+
+    // Compute Q matrix
+    _computeQ(_eta);
+
+    // Compute angular velocity and eta_dot
+    _omega << twist.angular.x, twist.angular.y, twist.angular.z;
+    _eta_d = _Q_inv * _omega;
+
+    // Compute Coriolis matrix
+    _computeC(_omega);
 
     _odomReady = true;
 }
@@ -93,31 +119,50 @@ void Controller::_getCurrentTrajPoint(){
 }
 
 
+void Controller::_computeQ(Vector3d eta){
+    _Q << 1,     0,              -sin(eta[0]),
+          0,     cos(eta[0]),    cos(eta[1])*sin(eta[0]),
+          0,     -sin(eta[0]),   cos(eta[1])*cos(eta[0]);
+    _QT = _Q.transpose();
+    _Q_inv = _Q.inverse();
+    _Q_dot << 0, 0,              -cos(eta[0]),
+              0, -sin(eta[0]),   -sin(eta[1])*sin(eta[0])+cos(eta[1])*cos(eta[0]),
+              0, -cos(eta[0]),   -sin(eta[1])*cos(eta[0])-cos(eta[1])*sin(eta[0]);
+}
+
+void Controller::_computeC(Vector3d omega){
+    _C = _QT * skew(omega) * _Ib * _Q  +  _QT * _Ib * _Q_dot;
+}
+
+
+void Controller::_computeMu(){
+    _mud = -_Kp * _e_p  -  _Kpi * _epInt
+            + Vector3d(_da.linear.x, _da.linear.y, _da.linear.z);
+}
+
+void Controller::_computeTau(){
+    Vector3d tauTilde = -_Ke*_e_eta - _Kei*_eoInt + _deta_dd;
+    _tau = _Ib * _Q * tauTilde  +  _Q_inv.transpose() * _C * _eta_d;
+}
+
+
 void Controller::_outerLoop(){
-    /* Compute position and linear velocity error */
-    geometry_msgs::Pose& pose = this->_odom.pose.pose;
-    geometry_msgs::Twist& twist = this->_odom.twist.twist;
+    ROS_INFO("Outer loop");
 
     // Position error
-    Vector3d ep (pose.position.x - _dp.position.x,
-            pose.position.y - _dp.position.y,
-            pose.position.z - _dp.position.z);
-
-    // Transform velocity from body frame to worldNED frame
-    Vector3d linVel (twist.linear.x, twist.linear.y, twist.linear.z);
-    linVel = _Rb * linVel;
+    Vector3d ep = _p - Vector3d(_dp.position.x, _dp.position.y, _dp.position.z);
+    ROS_INFO_STREAM("    Pos error: " << ep[0] << ", " << ep[1] << ", " << ep[2]);
 
     // Linear velocity error
-    Vector3d epd (linVel.x() - _dv.linear.x,
-            linVel.y() - _dv.linear.y,
-            linVel.z() - _dv.linear.z);
+    Vector3d epd = _p_d - Vector3d(_dv.linear.x, _dv.linear.y, _dv.linear.z);
+    ROS_INFO_STREAM("    Lin vel error: " << epd[0] << ", " << epd[1] << ", " << epd[2]);
 
     // Compute mu_d
-    Matrix<double,6,1> e;
-    e << ep, epd;
-    _epInt += e / _rate;
+    _e_p << ep, epd;
+    _epInt += _e_p / _rate;
 
-    _mud = -_Kp*e - _Kpi*_epInt + Vector3d(_da.linear.x, _da.linear.y, _da.linear.z);
+    _computeMu();
+    ROS_INFO_STREAM("    Mu: " << _mud[0] << ", " << _mud[1] << ", " << _mud[2]);
 
     // Compute outputs
     _uT = _m * sqrt(pow(_mud[0],2) + pow(_mud[1],2) + pow(_mud[2] - GRAVITY,2));
@@ -126,52 +171,36 @@ void Controller::_outerLoop(){
     _deta[1] = atan2(_mud[0]*cos(_dp.yaw) + _mud[1]*sin(_dp.yaw), _mud[2] - GRAVITY);
     _deta[1] += M_PI * ((_deta[1] > 0) ? -1 : 1);
     _deta[2] = _dp.yaw;
+    ROS_INFO_STREAM("    des_eta: " << _deta[0] << ", " << _deta[1] << ", " << _deta[2]);
 }
 
 
 void Controller::_innerLoop(){
+    ROS_INFO("Inner loop");
+
     // Compute derivatives of orientation
-    Vector3d deta_d, deta_dd;
-    this->_filter.filterSteps(_deta.segment<2>(0), _filterSteps);
-    deta_d << _filter.lastFirst(), _dv.angular.z;
-    deta_dd << _filter.lastSecond(), _da.angular.z;
+    this->_filter.filterSteps(_deta.head<2>(), _filterSteps);
+    _deta_d << _filter.lastFirst(), _dv.angular.z;
+    _deta_dd << _filter.lastSecond(), _da.angular.z;
 
     // Compute orientation errors
-    geometry_msgs::Pose& pose = this->_odom.pose.pose;
-    geometry_msgs::Twist& twist = this->_odom.twist.twist;
-    double r,p,y;
-    tf::Matrix3x3(tf::Quaternion(pose.orientation.x, pose.orientation.y,
-        pose.orientation.z, pose.orientation.w)).getRPY(r,p,y);
+    Vector3d eo = _eta - _deta;
+    Vector3d eod = _eta_d - _deta_d;
+    ROS_INFO_STREAM("    Orient err: " << eo[0] << ", " << eo[1] << ", " << eo[2]);
+    ROS_INFO_STREAM("    Orient dot err: " << eod[0] << ", " << eod[1] << ", " << eod[2]);
 
-    Vector3d eta(r,p,y);
-    Vector3d eo = eta - _deta;
+    _e_eta << eo, eod;
+    _eoInt += _e_eta / _rate;
 
-    // Compute Q matrix
-    Matrix3d Q, QT, Q_inv, Q_dot;
-    Q << 1,     0,              -sin(eta[0]),
-         0,     cos(eta[0]),    cos(eta[1])*sin(eta[0]),
-         0,     -sin(eta[0]),   cos(eta[1])*cos(eta[0]);
-    QT = Q.transpose();
-    Q_inv = Q.inverse();
-    Q_dot << 0, 0,              -cos(eta[0]),
-             0, -sin(eta[0]),   -sin(eta[1])*sin(eta[0])+cos(eta[1])*cos(eta[0]),
-             0, -cos(eta[0]),   -sin(eta[1])*cos(eta[0])-cos(eta[1])*sin(eta[0]);
-
-    Vector3d omega (twist.angular.x, twist.angular.y, twist.angular.z);
-    Vector3d eta_d = Q_inv * omega;
-    Vector3d eod = eta_d - deta_d;
-
-    Matrix<double,6,1> e;
-    e << eo, eod;
-    _eoInt += e / _rate;
-
-    // Compute Coriolis matrix
-    Matrix3d C = QT * skew(omega) * _Ib * Q  +  QT * _Ib * Q_dot;
-
-    // Compute tau
-    Vector3d tauTilde = -_Ke*e - _Kei*_eoInt + deta_dd;
-    _tau = _Ib*Q*tauTilde + Q.inverse().transpose() * C * eta_d;
+    _computeTau();
 }
+
+
+void Controller::_coreLoop(){
+    _outerLoop();       // compute uT
+    _innerLoop();       // compute tau
+}
+
 
 void Controller::run(){
     ROS_INFO("VTOL UAV Controller started.");
@@ -191,8 +220,11 @@ void Controller::run(){
             }
 
             _getCurrentTrajPoint();
-            _outerLoop();       // compute uT
-            _innerLoop();       // compute tau
+            _coreLoop();
+
+            ROS_INFO_STREAM("uT = " << _uT);
+            ROS_INFO_STREAM("tau: " << _tau[0] << ", " << _tau[1] << ", " << _tau[2]);
+            ROS_INFO("=========================================");
 
             // Build command msg and publish it
             cmd.force.z = _uT;
@@ -206,12 +238,4 @@ void Controller::run(){
         r.sleep();
         ros::spinOnce();
     }
-}
-
-
-int main(int argc, char **argv){
-    ros::init(argc, argv, "hier_controller");
-    Controller ctrl;
-    ctrl.run();
-    return 0;
 }

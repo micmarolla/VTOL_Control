@@ -154,8 +154,11 @@ include_directories(
 add_executable(APPlanner2D src/APPlanner2D.cpp src/MapAnalyzer.cpp)
 target_link_libraries(APPlanner2D ${catkin_LIBRARIES})
 
-add_executable(Controller src/Controller.cpp)
+add_executable(Controller src/ControllerNode.cpp src/Controller.cpp)
 target_link_libraries(Controller ${catkin_LIBRARIES})
+
+add_executable(PController src/PControllerNode.cpp src/PController.cpp src/Controller.cpp)
+target_link_libraries(PController ${catkin_LIBRARIES})
 
 add_executable(plannerTest src/plannerTest.cpp)
 target_link_libraries(plannerTest ${catkin_LIBRARIES})
