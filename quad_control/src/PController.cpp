@@ -34,8 +34,7 @@ void PController::_estimateWrench(){
                                         Vector3d::Zero(),       _QT;
     Matrix<double,6,1> G_sigma; G_sigma << 0, 0, -_m*GRAVITY, 0, 0, 0;
 
-    /*_Fe = _k0*q -
-        (_c0*_Fe + _k0*(C_sigma.transpose()*sigma_d + Delta*u - G_sigma)) / _rate;*/
+    // Estimation
     Matrix<double,6,1> X = C_sigma.transpose() * sigma_d + Delta*u - G_sigma;
     _Fe += _k0 * (q-_q_prev) - (_c0*_Fe + _k0*X)/_rate;
     _q_prev = q;
@@ -47,7 +46,8 @@ void PController::_estimateWrench(){
 
 void PController::_computeMu(){
     Vector3d mud = Vector3d(_da.linear.x, _da.linear.y, _da.linear.z) -
-        (_Kp * _e_p.head<3>() + _Kd * _e_p.tail<3>()) / _m;
+        (_Kp * _e_p.head<3>() + _Kd * _e_p.tail<3>() +
+         _Kpi * _epInt) / _m;
     _mud = mud - _Fe.head<3>() / _m;
 }
 

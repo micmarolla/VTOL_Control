@@ -52,6 +52,8 @@ protected:
     Matrix<double,6,1> _e_p;
     Vector3d _mud;
     geometry_msgs::Accel _da;
+    Matrix<double,3,6> _Kpi, _Kei;          // Integral gains
+    Matrix<double,6,1> _epInt, _eoInt;      // Integral
 
 
     /*
@@ -90,7 +92,6 @@ private:
     ros::Publisher _pub;                    // Command wrench
 
     Matrix<double,3,6> _Kp, _Ke;            // Proportional gains
-    Matrix<double,3,6> _Kpi, _Kei;          // Integral gains
 
     Trajectory _traj;                       // Trajectory
     bool _trajReady;                        // True if trajectory is ready
@@ -107,7 +108,6 @@ private:
     Vector3d _p;
     Vector3d _omega;
 
-    Matrix<double,6,1> _epInt, _eoInt;      // Integral
     Vector3d _deta;                         // Desired eta
 
     LP2Filter<Vector2d> _filter;            // Low-pass 2nd order filter

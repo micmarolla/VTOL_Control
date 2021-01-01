@@ -3,6 +3,7 @@
 #include <vector>
 #include "geometry_msgs/Accel.h"
 #include <tf/transform_datatypes.h>
+#include <tf/transform_listener.h>
 
 #define DEFAULT_STEADY_TIME     1.0     // seconds
 
@@ -142,6 +143,8 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
             pose.pose.position = q.position;
             pose.pose.orientation = tf::createQuaternionMsgFromYaw(q.yaw);
             path.poses.push_back(pose);
+
+            this->_pathPub.publish(_path);
         }
 
         // Check if goal has been reached
@@ -162,7 +165,7 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
 
 
 void APPlanner2D::plan(PlanRequestPtr req){
-    ROS_INFO("APPlanner_2D: path planning requested.");
+    ROS_INFO("APPlanner_2D: path planning requested. Planning...");
 
     // Check number of points in the trajectory
     if(req->q.size() <= 1){
@@ -181,6 +184,17 @@ void APPlanner2D::plan(PlanRequestPtr req){
         if(fr_g[0] != 0 || fr_g[1] != 0){
             ROS_ERROR("Repulsive forces in one of goal configurations are not null. Planning is not possible");
             return;
+        }
+    }
+
+    if(_debugPath){
+        tf::TransformListener _tf;
+        try{
+            _tf.waitForTransform("/world", "/worldNED", ros::Time::now(),
+                ros::Duration(1.0));
+        } catch(tf::TransformException &ex){
+            ROS_ERROR("%s", ex.what());
+            _debugPath = false;
         }
     }
 

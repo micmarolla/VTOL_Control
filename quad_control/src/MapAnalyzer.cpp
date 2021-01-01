@@ -1,5 +1,7 @@
 #include "MapAnalyzer.h"
 #include <cmath>
+#include <iostream> ////////////
+#include "ros/console.h"
 
 MapAnalyzer::MapAnalyzer(){
     _map = 0;
@@ -94,6 +96,8 @@ void MapAnalyzer::setMap(int8_t *map, int w, int h){
 
 
 void MapAnalyzer::scan(){
+    ROS_INFO("Scanning map...");
+
     // Scan the map
     for (int r=_h-1; r>=0; --r){
         for (int c=0; c < _w; ++c){
@@ -106,8 +110,9 @@ void MapAnalyzer::scan(){
 
             // Fill tree
             Chunk *obst = new Chunk;
-            obst->x = i % _w;
-            obst->y = i / _w;
+            // Coords are inverted wrt the usual way, since the frame is NED
+            obst->y = i % _w;
+            obst->x = i / _w;
             this->_fillTree(obst, i);
 
             this->_chunks.push_back(obst);
@@ -115,6 +120,7 @@ void MapAnalyzer::scan(){
     }
 
     _scanned = true;
+    ROS_INFO("Map scanned.");
 }
 
 

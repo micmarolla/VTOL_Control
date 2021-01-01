@@ -55,23 +55,48 @@
     </node>
 
     <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="screen">
-        <param name="rate"          type="double"   value="100"/>
+        <param name="rate"          type="double"   value="10"/>
         <param name="debugPath"     type="bool"     value="true"/>
-        <param name="sampleTime"    type="double"   value="0.01"/>
-        <param name="eta"           type="double"   value="1.2"/>
+        <param name="sampleTime"    type="double"   value="0.001"/>
+        <param name="eta"           type="double"   value="1.5"/>
         <param name="ka"            type="double"   value="2.0"/>
-        <param name="kr"            type="double"   value="2.0"/>
+        <param name="kr"            type="double"   value="5.0"/>
     </node>
 
     <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen">
-        <param name="n"  type="int"    value="2"/>
+        <param name="n"  type="int"    value="3"/>
         <param name="x0" type="double" value="-6.0"/>
         <param name="y0" type="double" value="-6.0"/>
         <param name="z0" type="double" value="0.0"/>
-        <param name="x1" type="double" value="0.0"/>
-        <param name="y1" type="double" value="-5.5"/>
-        <param name="z1" type="double" value="0.0"/>
+        <param name="x1" type="double" value="-6.0"/>
+        <param name="y1" type="double" value="-6.0"/>
+        <param name="z1" type="double" value="-1.0"/>
+        <param name="x2" type="double" value="0.5"/>
+        <param name="y2" type="double" value="-5.0"/>
+        <param name="z2" type="double" value="-1.0"/>
         <param name="steadyTime1"   type="double"   value="0.5"/>
+    </node>
+
+    <!--<node pkg="quad_control" type="Controller" name="Controller" output="log">-->
+    <node pkg="quad_control" type="PController" name="PController" output="log">
+        <!--<param name="kp"    type="double" value="1.0"/>
+        <param name="kpv"   type="double" value="1.0"/>
+        <param name="ke"    type="double" value="10.0"/>
+        <param name="kev"   type="double" value="10.0"/>-->
+        <param name="kpi"   type="double" value="0.01"/>
+        <param name="kpiv"  type="double" value="0.0"/>
+        <param name="kei"   type="double" value="0.01"/>
+        <param name="keiv"  type="double" value="0.0"/>
+        <param name="k1"    type="double" value="10.0"/>
+        <param name="k2"    type="double" value="1.0"/>
+        <param name="filterSteps" type="int" value="50"/>
+        <param name="c0"    type="double" value="1.0"/>
+        <param name="k0"    type="double" value="1.0"/>
+        <param name="v"     type="double" value="10.0"/>
+        <param name="kp"    type="double" value="1.0"/>
+        <param name="kd"    type="double" value="1.0"/>
+        <param name="ko"    type="double" value="5.0"/>
+        <param name="estimator" type="bool" value="true"/>
     </node>
 
 </launch>
