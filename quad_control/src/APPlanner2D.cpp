@@ -21,6 +21,7 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _p_eps      = _nh.param<double>("p_eps", 0.001);
     _o_eps      = _nh.param<double>("o_eps", 0.001);
     _debugPath  = _nh.param<bool>("debugPath", true);
+    _maxVertAcc = _nh.param<double>("maxVerticalAcc", 5.0);
 
     if(_nh.hasParam("sampleTime")){
         _sampleMin = _sampleMax = _sampleAvg
@@ -181,6 +182,8 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
             v.linear.x  = (ft[0]-ftPrev[0]) / sample;
             v.linear.y  = (ft[1]-ftPrev[1]) / sample;
             v.linear.z  = (ft[2]-ftPrev[2]) / sample;
+            if (v.linear.z > 9.81)
+                v.linear.z = _maxVertAcc;
             v.angular.z = (ft[3]-ftPrev[3]) / sample;
             trajectory.a.push_back(v);
         }

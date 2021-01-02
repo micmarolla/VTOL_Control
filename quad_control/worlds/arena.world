@@ -2,6 +2,7 @@
   <world name='default'>
     <plugin name='gazebo_octomap' filename='librotors_gazebo_octomap_plugin.so'/>
     <plugin name='ned_conversions' filename='libned_conv.so'/>
+    <plugin name='wind_plugin' filename='libwind_plugin.so'/>
     <model name='ground_plane'>
       <static>1</static>
       <link name='link'>

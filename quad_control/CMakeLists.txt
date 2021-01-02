@@ -8,6 +8,11 @@ project(quad_control)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 
+include (FindPkgConfig)
+if (PKG_CONFIG_FOUND)
+    pkg_check_modules(GAZEBO gazebo)
+endif()
+
 find_package(Eigen3 REQUIRED)
 include_directories(${Eigen_INCLUDE_DIRS})
 
@@ -68,11 +73,10 @@ add_message_files(
 )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+    wind.srv
+)
 
 ## Generate actions in the 'action' folder
 #add_action_files(
@@ -134,7 +138,10 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  ${GAZEBO_INCLUDE_DIRS}
 )
+
+link_directories(${GAZEBO_LIBRARY_DIRS})
 
 
 ## Declare a C++ library
@@ -162,3 +169,6 @@ target_link_libraries(PController ${catkin_LIBRARIES})
 
 add_executable(plannerTest src/plannerTest.cpp)
 target_link_libraries(plannerTest ${catkin_LIBRARIES})
+
+add_library(wind_plugin src/WindPlugin.cc)
+target_link_libraries(wind_plugin ${catkin_LIBRARIES} ${GAZEBO_LIBRARIES})

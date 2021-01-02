@@ -103,6 +103,7 @@ private:
     double _o_eps;      // if orientation error <= eps, it is assumed error = 0
     double _sampleMin, _sampleMax, _sampleAvg;
     double _qdiffMin, _qdiffMax;
+    double _maxVertAcc;
     bool _debugPath;    // if true, publish nav_msgs::Path debug msg
     bool _done;
 
