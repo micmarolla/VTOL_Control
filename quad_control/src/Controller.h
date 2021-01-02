@@ -90,11 +90,14 @@ private:
     ros::Subscriber _trajSub;               // Trajectory
     ros::Subscriber _odomSub;               // Odometry
     ros::Publisher _pub;                    // Command wrench
+    ros::Publisher _pointPub;
 
     Matrix<double,3,6> _Kp, _Ke;            // Proportional gains
 
     Trajectory _traj;                       // Trajectory
     bool _trajReady;                        // True if trajectory is ready
+    int _trajStep;
+    int _remainingSteps, _doneSteps;
 
     ros::Time _startTime;                   // Time of trajectory starting
     bool _started, _completed;              // Flag about trajectory status

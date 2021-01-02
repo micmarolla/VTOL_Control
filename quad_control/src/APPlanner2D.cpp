@@ -15,13 +15,33 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _rate       = _nh.param<double>("rate", 1.0);
     _ka         = _nh.param<double>("ka", 1.0);
     _kr         = _nh.param<double>("kr", 1.0);
-    _eta        = _nh.param<double>("eta", 1.0);
+    _qdiffMin   = _nh.param<double>("qDiffMin", 0.0);
+    _qdiffMax   = _nh.param<double>("qDiffMax", 0.0);
     _gamma      = _nh.param<double>("gamma", 2.0);
     _p_eps      = _nh.param<double>("p_eps", 0.001);
     _o_eps      = _nh.param<double>("o_eps", 0.001);
-    _sampleTime = _nh.param<double>("sampleTime", 0.01);
     _debugPath  = _nh.param<bool>("debugPath", true);
 
+    if(_nh.hasParam("sampleTime")){
+        _sampleMin = _sampleMax = _sampleAvg
+                = _nh.param<double>("sampleTime", 0.01);
+    }else{
+        _sampleMin = _nh.param<double>("sampleTimeMin", 0.001);
+        _sampleMax = _nh.param<double>("sampleTimeMax", 0.01);
+        _sampleAvg = (_sampleMin + _sampleMax) / 2.0;
+    }
+
+    // Eta
+    if(_nh.hasParam("eta")){
+        double eta = _nh.param<double>("eta", 1.0);
+        _etaObst = _etaWall = eta;
+    }else{
+        _etaWall = _nh.param<double>("etaWall", 1.0);
+        _etaObst = _nh.param<double>("etaObst", 1.0);
+    }
+    _etaMax = (_etaObst > _etaWall) ? _etaObst : _etaWall;
+
+    _currMinDist2 = 0;
     _done = false;
 
     _sub = _nh.subscribe("/planRequest", 0, &APPlanner2D::plan, this);
@@ -45,11 +65,22 @@ Vector4d APPlanner2D::_computeError(UAVPose q, UAVPose qd){
 }
 
 
-UAVPose APPlanner2D::_eulerIntegration(UAVPose q, Vector4d ft){
-    q.position.x = q.position.x + _sampleTime * ft[0];
-    q.position.y = q.position.y + _sampleTime * ft[1];
-    q.position.z = q.position.z + _sampleTime * ft[2];
-    q.yaw = q.yaw + _sampleTime * ft[3];
+UAVPose APPlanner2D::_eulerIntegration(UAVPose q, Vector4d ft, double sampleTime){
+    // Cap total displacement
+    if (_qdiffMax > 0){
+        double diff = _qdiffMax;
+        if(sampleTime == _sampleMin)
+            diff = _qdiffMin;
+        double fMax = diff / sampleTime;
+        if (ft.norm() > fMax)
+            ft = ft / ft.norm() * fMax;
+    }
+
+    // Compute q
+    q.position.x = q.position.x + sampleTime * ft[0];
+    q.position.y = q.position.y + sampleTime * ft[1];
+    q.position.z = q.position.z + sampleTime * ft[2];
+    q.yaw = q.yaw + sampleTime * ft[3];
 
     return q;
 }
@@ -82,13 +113,26 @@ Vector4d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
 
     // For each chunk, considering the minimum-distance point from the robot...
     vector<Chunk*> obstacles = this->_mapAnalyzer.getObjAtMinDist(rxCell, ryCell);
+    bool firstObst = true;
+    double eta = 0;
     for (auto obj : obstacles){
         obj->dist2 *= pow(this->_mapInfo.resolution, 2); // convert to [meters^2]
-        if (obj->dist2 > pow(this->_eta,2))
+
+        // Get right wall: this works because the first chunk is always the wall
+        if (firstObst){
+            eta = _etaWall;
+            _currMinDist2 = obj->dist2;
+            firstObst = false;
+        }else{
+            eta = _etaObst;
+            _currMinDist2 = (obj->dist2 < _currMinDist2) ? obj->dist2 : _currMinDist2;
+        }
+
+        if (obj->dist2 > pow(eta,2))
             continue;
 
         // ... compute repulsive force
-        fri_mod = (_kr / obj->dist2) * pow(1/sqrt(obj->dist2) - 1/_eta, _gamma - 1);
+        fri_mod = (_kr / obj->dist2) * pow(1/sqrt(obj->dist2) - 1/eta, _gamma - 1);
         fri = fri_mod * Vector2d(rxCell - obj->x, ryCell - obj->y).normalized();
 
         fr[0] += fri[0];
@@ -107,22 +151,37 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
     v.angular.x = v.angular.y = 0;
 
     Vector4d err, ft, ftPrev;
+    Vector3d goalDist;
     bool done = false, first = true;
 
     while (!done){
         // Compute error, force, integrate and add to path
         err = _computeError(q, qg);
-        ft = _computeForce(q, err);
-        q = _eulerIntegration(q, ft);
+        ft  = _computeForce(q, err);
+
+        goalDist << q.position.x - qg.position.x, q.position.y - qg.position.y,
+            q.position.z - qg.position.z;
+
+        // Sample time
+        double sample;
+        if (_currMinDist2 > 2*_etaMax || goalDist.norm() > 0.5)
+            sample = _sampleMax;        // Far from obstacles
+        else if (_currMinDist2 > _etaMax || goalDist.norm() > 0.5)
+            sample = _sampleAvg;        // Mid-way
+        else
+            sample = _sampleMin;        // Near obstacles
+        trajectory.t.push_back(sample);
+
+        q = _eulerIntegration(q, ft, sample);
 
         // Accelerations: simple numerical derivation
         if(first)
             first = false;
         else{
-            v.linear.x  = (ft[0]-ftPrev[0])/_sampleTime;
-            v.linear.y  = (ft[1]-ftPrev[1])/_sampleTime;
-            v.linear.z  = (ft[2]-ftPrev[2])/_sampleTime;
-            v.angular.z = (ft[3]-ftPrev[3])/_sampleTime;
+            v.linear.x  = (ft[0]-ftPrev[0]) / sample;
+            v.linear.y  = (ft[1]-ftPrev[1]) / sample;
+            v.linear.z  = (ft[2]-ftPrev[2]) / sample;
+            v.angular.z = (ft[3]-ftPrev[3]) / sample;
             trajectory.a.push_back(v);
         }
         ftPrev = ft;
@@ -153,7 +212,7 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
     }
 
     // Append final entries with null velocity and acceleration, and same position
-    for(int i=0; i < ceil(steadyTime / _sampleTime); ++i){
+    for(int i=0; i < ceil(steadyTime / _sampleMax); ++i){
         v.linear.x = v.linear.y = v.linear.z = 0;
         v.angular.x = v.angular.y = v.angular.z = 0;
         trajectory.p.push_back(trajectory.p.back());
@@ -179,12 +238,16 @@ void APPlanner2D::plan(PlanRequestPtr req){
 
     // Check that repulsive forces in q_goal are null
     Vector4d fr_g;
+    int currPoint = 0;
     for(auto q : req->q){
         fr_g = _computeRepulsiveForce(q.position.x, q.position.y);
         if(fr_g[0] != 0 || fr_g[1] != 0){
-            ROS_ERROR("Repulsive forces in one of goal configurations are not null. Planning is not possible");
+            ROS_ERROR_STREAM("Repulsive forces in configurations " <<
+                currPoint << " are not null. Planning is not possible");
+            ROS_ERROR_STREAM("Distance from the nearest obstacle: " << sqrt(_currMinDist2));
             return;
         }
+        ++currPoint;
     }
 
     if(_debugPath){
@@ -214,8 +277,6 @@ void APPlanner2D::plan(PlanRequestPtr req){
 
         _planSegment(req->q[i-1], req->q[i], steadyT, trajectory, _path);
     }
-
-    trajectory.sampleTime = this->_sampleTime;
 
     if(_debugPath)
         this->_pathPub.publish(_path);

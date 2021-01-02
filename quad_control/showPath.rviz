@@ -9,6 +9,7 @@ Panels:
         - /Axes2
         - /RobotModel1
         - /Path1
+        - /PointStamped1
       Splitter Ratio: 0.5147058963775635
     Tree Height: 755
   - Class: rviz/Selection
@@ -153,6 +154,16 @@ Visualization Manager:
       Topic: /plannedPath
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Class: rviz/PointStamped
+      Color: 115; 210; 22
+      Enabled: true
+      History Length: 1
+      Name: PointStamped
+      Radius: 0.05000000074505806
+      Topic: /trajectoryPoint
+      Unreliable: false
+      Value: true
     - Alpha: 0.699999988079071
       Class: rviz/Map
       Color Scheme: map
@@ -191,25 +202,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 16.20115852355957
+      Distance: 2.321566104888916
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.23481734097003937
-        Y: -3.485598564147949
-        Z: 2.745173215866089
+        X: -3.8716659545898438
+        Y: -5.926496982574463
+        Z: 1.5457119941711426
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5047975778579712
+      Pitch: 0.44479724764823914
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.7485833168029785
+      Yaw: 5.283586025238037
     Saved: ~
 Window Geometry:
   Displays:

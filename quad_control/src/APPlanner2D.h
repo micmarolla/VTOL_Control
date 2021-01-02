@@ -59,8 +59,9 @@ private:
      * Parameters:
      *  - q: robot pose
      *  - ft: total force acting on the robot
+     *  - sampleTime: current sample time
      */
-    UAVPose _eulerIntegration(UAVPose q, Vector4d ft);
+    UAVPose _eulerIntegration(UAVPose q, Vector4d ft, double sampleTime);
 
     /*
      * Compute the virtual forces applied on the robot, via the artificial
@@ -95,11 +96,13 @@ private:
 
     double _rate;
     double _ka, _kr;    // Attractive and repulsive forces gain
-    double _eta;        // Range of influence
+    double _etaObst, _etaWall, _etaMax;    // Range of influence
+    double _currMinDist2;
     double _gamma;      // Used for repulsive forces computation, can be 2 or 3
     double _p_eps;      // if position error <= eps, it is assumed error = 0
     double _o_eps;      // if orientation error <= eps, it is assumed error = 0
-    double _sampleTime;
+    double _sampleMin, _sampleMax, _sampleAvg;
+    double _qdiffMin, _qdiffMax;
     bool _debugPath;    // if true, publish nav_msgs::Path debug msg
     bool _done;
 

@@ -5,7 +5,6 @@ using namespace Eigen;
 
 PController::PController() : Controller(){
     _c0 = _nh.param<double>("c0", 1000.0);
-    _k0 = _nh.param<double>("k0", 1000.0);
     _v  = _nh.param<double>("v",  100.0);
     _enableEstimator = _nh.param<bool>("estimator",  true);
 
@@ -17,6 +16,9 @@ PController::PController() : Controller(){
     double ko = _nh.param<double>("ko",  100.0);
     _Ko = ko * Matrix3d::Identity();
     _Do = _Ko / _v;
+
+    double band = _nh.param<double>("filterBand", 10.0);
+    _estFilter.initFilterStep(0.001, band, 0, Matrix<double,6,1>::Zero(), Matrix<double,6,1>::Zero());
 
     _q_prev << 0,0,0,0,0,0;
     _Fe << 0,0,0,0,0,0;
@@ -36,11 +38,16 @@ void PController::_estimateWrench(){
 
     // Estimation
     Matrix<double,6,1> X = C_sigma.transpose() * sigma_d + Delta*u - G_sigma;
-    _Fe += _k0 * (q-_q_prev) - (_c0*_Fe + _k0*X)/_rate;
+    Matrix<double,6,1> tempFe = _Fe + _c0 * (q-_q_prev) - (_c0*_Fe + _c0*X)/_rate;
+
+    // Filter
+    this->_estFilter.filterSteps(tempFe, 10);
+    _Fe << _estFilter.lastFirst();
+
     _q_prev = q;
 
-    ROS_INFO_STREAM("Estimated wrench: " << _Fe[0] << ", " << _Fe[1] << ", "
-        << _Fe[2] << ";  " << _Fe[3] << ", " << _Fe[4] << ", " << _Fe[5]);
+    //ROS_INFO_STREAM("Estimated wrench: " << _Fe[0] << ", " << _Fe[1] << ", "
+    //    << _Fe[2] << ";  " << _Fe[3] << ", " << _Fe[4] << ", " << _Fe[5]);
 }
 
 
@@ -57,10 +64,10 @@ void PController::_computeTau(){
     Vector3d eta_r_dd = _deta_dd - _v * eta_r_d;
     Vector3d v_eta = _e_eta.tail<3>() + _v * e_eta;
 
-    ROS_INFO_STREAM("e_eta: " << e_eta[0] << ", " << e_eta[1] << ", " << e_eta[2]);
-    ROS_INFO_STREAM("eta_r_d: " << eta_r_d[0] << ", " << eta_r_d[1] << ", " << eta_r_d[2]);
-    ROS_INFO_STREAM("eta_r_dd: " << eta_r_dd[0] << ", " << eta_r_dd[1] << ", " << eta_r_dd[2]);
-    ROS_INFO_STREAM("v_eta: " << v_eta[0] << ", " << v_eta[1] << ", " << v_eta[2]);
+    //ROS_INFO_STREAM("e_eta: " << e_eta[0] << ", " << e_eta[1] << ", " << e_eta[2]);
+    //ROS_INFO_STREAM("eta_r_d: " << eta_r_d[0] << ", " << eta_r_d[1] << ", " << eta_r_d[2]);
+    //ROS_INFO_STREAM("eta_r_dd: " << eta_r_dd[0] << ", " << eta_r_dd[1] << ", " << eta_r_dd[2]);
+    //ROS_INFO_STREAM("v_eta: " << v_eta[0] << ", " << v_eta[1] << ", " << v_eta[2]);
 
     _tau = _Q_inv.transpose() *
         (_M*eta_r_dd + _C*eta_r_d - _Fe.tail<3>() - _Do*v_eta - _Ko*e_eta);

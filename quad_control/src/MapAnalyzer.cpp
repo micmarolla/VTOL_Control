@@ -1,6 +1,5 @@
 #include "MapAnalyzer.h"
 #include <cmath>
-#include <iostream> ////////////
 #include "ros/console.h"
 
 MapAnalyzer::MapAnalyzer(){
@@ -34,34 +33,34 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
         return;
 
     // Left node
-    if(root->x > 0){
+    if(root->y > 0){
         int k = index - 1;
         if (!this->_visited[k] && this->_map[k]>50){
             root->left = new Chunk;
-            root->left->x = root->x-1;
-            root->left->y = root->y;
+            root->left->x = root->x;
+            root->left->y = root->y-1;
             _fillTree(root->left, k);
         }
     }
 
     // Right node
-    if(root->x < this->_w - 1){
+    if(root->y < this->_w - 1){
         int k = index + 1;
         if (!this->_visited[k] && this->_map[k]>50){
             root->right = new Chunk;
-            root->right->x = root->x+1;
-            root->right->y = root->y;
+            root->right->x = root->x;
+            root->right->y = root->y+1;
             _fillTree(root->right, k);
         }
     }
 
     // Bottom node
-    if(root->y > 0){
+    if(root->x > 0){
         int k = index - this->_w;
         if (!this->_visited[k] && this->_map[k]>50){
             root->down = new Chunk;
-            root->down->x = root->x;
-            root->down->y = root->y-1;
+            root->down->x = root->x-1;
+            root->down->y = root->y;
             _fillTree(root->down, k);
         }
     }
