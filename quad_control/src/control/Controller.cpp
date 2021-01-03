@@ -55,7 +55,7 @@ Controller::Controller() : _nh("~"){
     _tau = Vector3d::Zero();
 
     _trajSub = _nh.subscribe("/trajectory", 0, &Controller::trajectoryReceived, this);
-    _odomSub = _nh.subscribe("/hummingbird/ground_truth/odometryNED", 0, &Controller::odomReceived, this);
+    _odomSub = _nh.subscribe("/hummingbird/odometryNED", 0, &Controller::odomReceived, this);
     _pub = _nh.advertise<geometry_msgs::Wrench>("/hummingbird/command/wrenchNED", 0);
     _pointPub = _nh.advertise<geometry_msgs::PointStamped>("/trajectoryPoint", 0);
 }

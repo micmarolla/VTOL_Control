@@ -8,6 +8,7 @@
 #include <eigen3/Eigen/Dense>
 #include <tf/tf.h>
 #include <tf_conversions/tf_eigen.h>
+#include <string>
 
 using namespace Eigen;
 using namespace std;
@@ -22,7 +23,7 @@ namespace gazebo
    */
   class NEDPlugin : public WorldPlugin
   {
-	
+
   private:
      ros::NodeHandle* _nh;
      ros::Publisher _odomNED_pub, _commandNED_pub;
@@ -43,8 +44,15 @@ namespace gazebo
 		_nh = new ros::NodeHandle();
 
     ROS_INFO("NED conversions plugin started!");
-    _odom_sub = _nh->subscribe("/hummingbird/ground_truth/odometry", 0, &NEDPlugin::odom_cb, this);
-    _odomNED_pub = _nh->advertise< nav_msgs::Odometry>("/hummingbird/ground_truth/odometryNED", 0);
+
+
+    string odomTopic = "/hummingbird/ground_truth/odometry";
+    bool useGroundTruth = _nh->param<bool>("/hummingbird/useGroundTruthOdom", true);
+    if(!useGroundTruth)
+        odomTopic = "/hummingbird/odometry_sensor1/odometry";
+
+    _odom_sub = _nh->subscribe(odomTopic, 0, &NEDPlugin::odom_cb, this);
+    _odomNED_pub = _nh->advertise< nav_msgs::Odometry>("/hummingbird/odometryNED", 0);
     _commandNED_pub = _nh->advertise< mav_msgs::Actuators>("/hummingbird/command/motor_speed", 0);
     _command_sub = _nh->subscribe("/hummingbird/command/wrenchNED", 0, &NEDPlugin::command_cb, this);
 
@@ -91,10 +99,10 @@ namespace gazebo
       }
     }
 
-    for (int i=0; i<4; i++) {
-      if(w2(i)<0) w2(i)=0;
-      //ROS_INFO("w(%d): %f",i,w2(i));
-    }
+    for (int i=0; i<4; i++)
+      if(w2(i)<0)
+        w2(i)=0;
+
 
   }
 
@@ -106,23 +114,18 @@ namespace gazebo
     ftau << wrench->force.z,wrench->torque.x,wrench->torque.y,wrench->torque.z;
 
     Vector4d w2 = _G.inverse() * ftau;
-    //ROS_INFO("G inverted!");
     correctW(w2);
-    //ROS_INFO("W corrected!");
     comm.header.stamp = ros::Time::now();
     comm.angular_velocities[0] = sqrt(w2(3));
     comm.angular_velocities[1] = sqrt(w2(2));
     comm.angular_velocities[2] = sqrt(w2(1));
     comm.angular_velocities[3] = sqrt(w2(0));
-    //ROS_INFO("sqrt computed!");
     _commandNED_pub.publish(comm);
-    //ROS_INFO("Command published!");
   }
 
   void NEDPlugin::odom_cb( nav_msgs::OdometryConstPtr odom ) {
       tf::Matrix3x3 RNed;
       RNed.setEulerYPR(M_PI/2,0,M_PI);
-      //RNed = RNed.transpose();
       tf::Vector3 p;
       tf::Vector3 pDot;
       tf::Vector3 wbb;
@@ -142,10 +145,7 @@ namespace gazebo
       pDot[0] = odom->twist.twist.linear.x;
       pDot[1] = odom->twist.twist.linear.y;
       pDot[2] = odom->twist.twist.linear.z;
-      //cout<<odom->twist.twist.linear.x;
       pDot = RNed*pDot;
-      //cout<<pDot[0];
-      //pDot = RNed*Rb*pDot*RNed.transpose();
 
       wbb[0] = odom->twist.twist.angular.y;
       wbb[1] = odom->twist.twist.angular.x;
@@ -173,9 +173,6 @@ namespace gazebo
       odomNED.twist.twist.angular.z = wbb[2];
 
       _odomNED_pub.publish(odomNED);
-      //ROS_INFO("x: %f  y: %f z: %f",_P_dot(0),_P_dot(1),_P_dot(2));
-      //ROS_INFO("x: %f  y: %f z: %f",_P(0),_P(1),_P(2));
-      //ROS_INFO("phi: %f  tetha: %f psi: %f",_Eta(0)*180.0/M_PI,_Eta(1)*180.0/M_PI,_Eta(2)*180.0/M_PI);
   }
 
  // Register this plugin with the simulator

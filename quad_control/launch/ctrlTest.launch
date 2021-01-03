@@ -50,6 +50,8 @@
             args="0 0 0 1.57079 0 3.14159  hummingbird/base_link hummingbird/base_linkNED  100"/>
 
         <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)"  />
+
+        <param name="useGroundTruthOdom" type="bool"    value="true"/>
     </group>
 
 
