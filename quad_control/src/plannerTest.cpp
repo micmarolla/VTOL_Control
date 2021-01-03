@@ -7,7 +7,6 @@
 
 ros::Publisher pub;
 quad_control::PlanRequest req;
-ros::NodeHandle* _nh;
 
 bool ready = false;
 bool pending = false;
@@ -23,21 +22,13 @@ void map_cb(nav_msgs::OccupancyGridConstPtr data){
 
 
 void traj_cb(quad_control::TrajectoryConstPtr data){
-    ros::ServiceClient client = _nh->serviceClient<quad_control::wind>("/quad_control/wind");
-    quad_control::wind srv;
-    srv.request.fx = _nh->param<double>("windX", 0.0);
-    srv.request.fy = _nh->param<double>("windY", 0.0);
-    srv.request.fz = _nh->param<double>("windZ", 0.0);;
-    client.waitForExistence();
-    if(!client.call(srv))
-        ROS_WARN("Problem calling wind server");
+
 }
 
 
 int main(int argc, char **argv){
     ros::init(argc, argv, "2d_planner_test");
     ros::NodeHandle nh("~");
-    _nh = &nh;
     ros::Rate rate(10);
     ros::Subscriber sub = nh.subscribe("/map", 0, &map_cb);
     ros::Subscriber subT = nh.subscribe("/trajectory", 0, &traj_cb);

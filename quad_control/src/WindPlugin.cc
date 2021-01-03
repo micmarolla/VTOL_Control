@@ -1,9 +1,12 @@
+#include <string>
 #include <gazebo/gazebo.hh>
 #include <gazebo/common/Plugin.hh>
 #include <gazebo/physics/physics.hh>
 #include <ignition/math/Vector3.hh>
 #include "ros/ros.h"
 #include "quad_control/wind.h"
+
+using namespace std;
 
 namespace gazebo{
 
@@ -24,42 +27,54 @@ namespace gazebo{
                 return;
             }
 
-            this->_world = world;
-            this->_server = this->_nh.advertiseService("/quad_control/wind", &WindPlugin::callback, this);
+            _world = world;
+            _enabled = _nh.param<bool>("wind/enabled", false);
+            if(_enabled){
+                // Retrieve force
+                _fx = _nh.param<double>("wind/fx", 0.0);
+                _fy = _nh.param<double>("wind/fy", 0.0);
+                _fz = _nh.param<double>("wind/fz", 0.0);
 
-            _updateConnection = event::Events::ConnectWorldUpdateBegin(
-                std::bind(&WindPlugin::OnUpdate, this));
+                _updateConnection = event::Events::ConnectWorldUpdateBegin(
+                    std::bind(&WindPlugin::OnUpdate, this));
 
-            ROS_INFO("Wind Plugin initialized.");
+                ROS_INFO("Wind Plugin initialized.");
+            }
         }
 
         // Apply force
         void OnUpdate(){
+            // Plugin not enabled
+            if(!_enabled)
+                return;
+
+            // Normal state
             if(_uavBase)
                 _uavBase->SetForce(ignition::math::Vector3d(_fx, _fy, _fz));
-        }
 
-        // Retrieve the base link reference and the wanted wind
-        bool callback(quad_control::wind::Request &req, quad_control::wind::Response &res){
-            _uavBase = _world->ModelByName("hummingbird")->GetLink("hummingbird/base_link");
-            _fx = req.fx;
-            _fy = req.fy;
-            _fz = req.fz;
-            res.ok = true;
-            ROS_INFO("Wind: link attached");
-            return true;
+            // Waiting for UAV spawning
+            else{
+                // Retrieve model
+                string modelName = _nh.param<string>("wind/model", "");
+                physics::ModelPtr model = _world->ModelByName(modelName);
+                if(!model)
+                    return;
+
+                // Retrieve link
+                string linkName = _nh.param<string>("wind/link", "");
+                _uavBase = model->GetLink(linkName);
+            }
         }
 
 
     private:
         ros::NodeHandle _nh;
-        ros::ServiceServer _server;
-
         physics::WorldPtr _world;
         physics::LinkPtr _uavBase;
         event::ConnectionPtr _updateConnection;
-
         double _fx, _fy, _fz;
+        bool _enabled;
+
 
     };
 

@@ -165,9 +165,9 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
 
         // Sample time
         double sample;
-        if (_currMinDist2 > 2*_etaMax || goalDist.norm() > 0.5)
+        if (_currMinDist2 > 2*_etaMax || goalDist.norm() > 0.1)
             sample = _sampleMax;        // Far from obstacles
-        else if (_currMinDist2 > _etaMax || goalDist.norm() > 0.5)
+        else if (_currMinDist2 > _etaMax || goalDist.norm() > 0.05)
             sample = _sampleAvg;        // Mid-way
         else
             sample = _sampleMin;        // Near obstacles
