@@ -44,8 +44,11 @@ public:
      *         nav_msgs/OccupancyGrid: the data are stored in the map vector
      *         considering the (0,0) element in the bottom-left corner.
      *  - w, h: map's width and height
+     *  - copyMap: if true, the map data is copied inside this object;
+     *      otherwise, the content is just pointed, and memory management is
+     *      not handled by this object.
      */
-    void setMap(int8_t *map, int w, int h);
+    void setMap(int8_t *map, int w, int h, bool copyMap=false);
 
     /*
      * Return true if a map has been loaded, false else.
@@ -81,7 +84,8 @@ private:
     bool _mapReady;             // True if map has been loaded
     bool _scanned;              // True if map has been scanned
     int _w, _h;                 // Map's width and height
-    bool *_visited;             // Bool map: 1 = visited, 0 = not visited
+    bool *_visited;             // Bool map: 1 = cell visited, 0 = not visited
+    bool _copied;               // If true, map memory is handled by this obj
 
     /*
      * Starting from the given root chunk, fill the tree recursively.

@@ -159,7 +159,7 @@ link_directories(${GAZEBO_LIBRARY_DIRS})
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 
-add_executable(APPlanner2D src/plan/APPlanner2D.cpp src/plan/MapAnalyzer.cpp)
+add_executable(APPlanner2D src/plan/APPlanner2D.cpp src/plan/MapAnalyzer.cpp src/plan/NavigationFunc.cpp)
 target_link_libraries(APPlanner2D ${catkin_LIBRARIES})
 
 add_executable(Controller src/control/ControllerNode.cpp src/control/Controller.cpp)

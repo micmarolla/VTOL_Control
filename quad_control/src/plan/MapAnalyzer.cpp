@@ -3,11 +3,12 @@
 #include <cmath>
 #include <ros/console.h>
 
-/* If map[i] > TRESHOLD_VAL, it is assumed that there's an obstacle in that
+/*
+ * If map[i] > MAPANALYZER_TRESH, it is assumed that there's an obstacle in that
  * cell. Map values goes from 0 to 100: for map retrieved from the octomap,
  * map only contains value 0 or 100, and nothing in between.
  */
-#define TRESHOLD_VAL    50
+#define MAPANALYZER_TRESH    50
 
 MapAnalyzer::MapAnalyzer(){
     _map = 0;
@@ -21,6 +22,8 @@ MapAnalyzer::~MapAnalyzer(){
     for (auto chunk : this->_chunks)
         _deleteTree(chunk);
     delete this->_visited;
+    if(_copied)
+        delete this->_map;
 }
 
 void MapAnalyzer::_deleteTree(Chunk *root){
@@ -36,13 +39,13 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
         return;
 
     this->_visited[index] = true;
-    if(this->_map[index] < TRESHOLD_VAL)
+    if(this->_map[index] < MAPANALYZER_TRESH)
         return;
 
     // Left node
     if(root->y > 0){
         int k = index - 1;
-        if (!this->_visited[k] && this->_map[k] > TRESHOLD_VAL){
+        if (!this->_visited[k] && this->_map[k] > MAPANALYZER_TRESH){
             root->left = new Chunk;
             root->left->x = root->x;
             root->left->y = root->y-1;
@@ -53,7 +56,7 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
     // Right node
     if(root->y < this->_w - 1){
         int k = index + 1;
-        if (!this->_visited[k] && this->_map[k] > TRESHOLD_VAL){
+        if (!this->_visited[k] && this->_map[k] > MAPANALYZER_TRESH){
             root->right = new Chunk;
             root->right->x = root->x;
             root->right->y = root->y+1;
@@ -64,7 +67,7 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
     // Bottom node
     if(root->x > 0){
         int k = index - this->_w;
-        if (!this->_visited[k] && this->_map[k] > TRESHOLD_VAL){
+        if (!this->_visited[k] && this->_map[k] > MAPANALYZER_TRESH){
             root->down = new Chunk;
             root->down->x = root->x-1;
             root->down->y = root->y;
@@ -75,13 +78,22 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
 
 
 void MapAnalyzer::setMap(nav_msgs::OccupancyGrid &grid){
-    this->setMap(&grid.data[0], grid.info.width, grid.info.height);
+    this->setMap(&grid.data[0], grid.info.width, grid.info.height, true);
 }
 
 
-void MapAnalyzer::setMap(int8_t *map, int w, int h){
-    this->_map = map;
+void MapAnalyzer::setMap(int8_t *map, int w, int h, bool copyMap){
+    if(_copied)
+        delete this->_map;
+
     int size = w*h;
+    if(copyMap){
+        this->_map = new int8_t[size];
+        for (int i=0; i<size; ++i)
+            this->_map[i] = map[i];
+    }else
+        this->_map = map;
+    _copied = copyMap;
 
     // Clear chunks
     for (auto chunk : this->_chunks)
@@ -109,7 +121,7 @@ void MapAnalyzer::scan(){
         for (int c=0; c < _w; ++c){
             int i = r * _w + c;
 
-            if (this->_map[i] < TRESHOLD_VAL || this->_visited[i]){
+            if (this->_map[i] < MAPANALYZER_TRESH || this->_visited[i]){
                 this->_visited[i] = true;
                 continue;
             }
