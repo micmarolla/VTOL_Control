@@ -1,6 +1,7 @@
-#include "ros/ros.h"
 #include <string>
-#include "nav_msgs/OccupancyGrid.h"
+#include <ros/ros.h>
+#include <nav_msgs/OccupancyGrid.h>
+
 #include "quad_control/PlanRequest.h"
 #include "quad_control/Trajectory.h"
 #include "quad_control/wind.h"

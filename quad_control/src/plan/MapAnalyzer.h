@@ -3,7 +3,8 @@
 
 #include <cstdint>
 #include <vector>
-#include "nav_msgs/OccupancyGrid.h"
+
+#include <nav_msgs/OccupancyGrid.h>
 
 using namespace std;
 
@@ -11,11 +12,11 @@ using namespace std;
  * Chunk is a tree-like structure, where each node has three child (left, right,
  * down). Used to detect and store obstacles in the map. Since the map is
  * scanned from top-left corner to bottom-right corner, the 'up' node is not
- * needed, since it will always be the root of the corresponding subtree.
+ * needed, because it will always be the root of the corresponding subtree.
  */
 typedef struct Chunk{
-    int x=0, y=0;
-    double dist2=0;
+    int x=0, y=0;           // Coords of the cell in the map frame
+    double dist2=0;         // Squared distance from the cell to the robot
     Chunk *left=0, *right=0, *down=0;
 } Chunk;
 

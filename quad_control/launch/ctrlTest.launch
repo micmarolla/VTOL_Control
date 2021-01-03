@@ -2,55 +2,59 @@
 
     <param name="/use_sim_time" value="true"/>
 
-  <arg name="mav_name" default="hummingbird"/>
-  <arg name="world_name" default="arena"/>
-  <arg name="enable_logging" default="false" />
-  <arg name="enable_ground_truth" default="true" />
-  <arg name="log_file" default="$(arg mav_name)" />
-  <arg name="debug" default="false"/>
-  <arg name="gui" default="true"/>
-  <arg name="paused" default="false"/>
-  <!-- The following line causes gzmsg and gzerr messages to be printed to the console
+    <arg name="mav_name"            default="hummingbird"/>
+    <arg name="world_name"          default="arena"/>
+    <arg name="enable_logging"      default="false" />
+    <arg name="enable_ground_truth" default="true" />
+    <arg name="log_file"            default="$(arg mav_name)"/>
+    <arg name="debug"               default="false"/>
+    <arg name="gui"                 default="true"/>
+    <arg name="paused"              default="false"/>
+
+    <!-- The following line causes gzmsg and gzerr messages to be printed to the console
       (even when Gazebo is started through roslaunch) -->
-  <arg name="verbose" default="false"/>
-  <arg name="rvizconfig" default="$(find quad_control)/showPath.rviz" />
+    <arg name="verbose"       default="false"/>
+    <arg name="rvizconfig"    default="$(find quad_control)/showPath.rviz"/>
 
-  <arg name="spawn_x" default="-6"/>
-  <arg name="spawn_y" default="-6"/>
+    <arg name="spawn_x"       default="-6"/>
+    <arg name="spawn_y"       default="-6"/>
 
-  <env name="GAZEBO_MODEL_PATH" value="${GAZEBO_MODEL_PATH}:$(find rotors_gazebo)/models"/>
-  <env name="GAZEBO_RESOURCE_PATH" value="${GAZEBO_RESOURCE_PATH}:$(find rotors_gazebo)/models"/>
-  <include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="world_name" value="$(find quad_control)/worlds/$(arg world_name).world" />
-    <arg name="debug" value="$(arg debug)" />
-    <arg name="paused" value="$(arg paused)" />
-    <arg name="gui" value="$(arg gui)" />
-    <arg name="verbose" value="$(arg verbose)"/>
-  </include>
-
-  <group ns="$(arg mav_name)">
-    <include file="$(find rotors_gazebo)/launch/spawn_mav.launch">
-      <arg name="mav_name" value="$(arg mav_name)" />
-      <arg name="model" value="$(find rotors_description)/urdf/mav_generic_odometry_sensor.gazebo" />
-      <arg name="x" value="$(arg spawn_x)"/>
-      <arg name="y" value="$(arg spawn_x)"/>
-      <arg name="enable_logging" value="$(arg enable_logging)" />
-      <arg name="enable_ground_truth" value="$(arg enable_ground_truth)" />
-      <arg name="log_file" value="$(arg log_file)"/>
+    <env name="GAZEBO_MODEL_PATH" value="${GAZEBO_MODEL_PATH}:$(find rotors_gazebo)/models"/>
+    <env name="GAZEBO_RESOURCE_PATH" value="${GAZEBO_RESOURCE_PATH}:$(find rotors_gazebo)/models"/>
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name"  value="$(find quad_control)/worlds/$(arg world_name).world" />
+        <arg name="debug"       value="$(arg debug)" />
+        <arg name="paused"      value="$(arg paused)" />
+        <arg name="gui"         value="$(arg gui)" />
+        <arg name="verbose"     value="$(arg verbose)"/>
     </include>
 
-    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
-    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+    <!-- Nodes regarding the UAV -->
+    <group ns="$(arg mav_name)">
+        <include file="$(find rotors_gazebo)/launch/spawn_mav.launch">
+            <arg name="mav_name"  value="$(arg mav_name)" />
+            <arg name="model"     value="$(find rotors_description)/urdf/mav_generic_odometry_sensor.gazebo" />
+            <arg name="x"         value="$(arg spawn_x)"/>
+            <arg name="y"         value="$(arg spawn_x)"/>
+            <arg name="enable_logging"        value="$(arg enable_logging)" />
+            <arg name="enable_ground_truth"   value="$(arg enable_ground_truth)" />
+            <arg name="log_file"  value="$(arg log_file)"/>
+        </include>
 
-    <!--<node pkg="tf" type="static_transform_publisher" name="maptf" args="0 0 0 0 0 0  world /map  100"/>-->
-    <node pkg="tf" type="static_transform_publisher" name="wNED" args="0 0 0 1.57079 0 3.14159  world worldNED  100"/>
-   <node pkg="tf" type="static_transform_publisher" name="bodyNED" args="0 0 0 1.57079 0 3.14159  hummingbird/base_link hummingbird/base_linkNED  100"/>
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+        <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
 
-   <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)"  />
+        <node pkg="tf" type="static_transform_publisher" name="wNED"
+            args="0 0 0 1.57079 0 3.14159  world worldNED  100"/>
+        <node pkg="tf" type="static_transform_publisher" name="bodyNED"
+            args="0 0 0 1.57079 0 3.14159  hummingbird/base_link hummingbird/base_linkNED  100"/>
 
-  </group>
+        <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)"  />
+    </group>
 
-    <node name="map_server" pkg="map_server" type="map_server" args="$(find quad_control)/worlds/maps/arena.yaml" output="screen">
+
+    <node name="map_server" pkg="map_server" type="map_server"
+            args="$(find quad_control)/worlds/maps/arena.yaml" output="screen">
         <param name="frame_id" type="string" value="world"/>
     </node>
 
@@ -63,53 +67,48 @@
         <param name="etaObst"       type="double"   value="1.75"/>
         <param name="ka"            type="double"   value="1.0"/>
         <param name="kr"            type="double"   value="5.0"/>
-        <!--<param name="qDiffMin"      type="double"   value="1e-4"/>-->
-        <!--<param name="qDiffMax"      type="double"   value="0.001"/>-->
     </node>
 
     <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen">
-        <param name="n"  type="int"    value="3"/>
-        <param name="x0" type="double" value="-6.0"/>
-        <param name="y0" type="double" value="-6.0"/>
-        <param name="z0" type="double" value="0.0"/>
-        <param name="x1" type="double" value="-6.0"/>
-        <param name="y1" type="double" value="-6.0"/>
-        <param name="z1" type="double" value="-1.0"/>
-        <param name="x2" type="double" value="0.0"/>
-        <param name="y2" type="double" value="-4.5"/>
-        <param name="z2" type="double" value="-1.0"/>
+        <!-- Trajectory -->
+        <param name="n"             type="int"      value="3"/>
+        <param name="x0"            type="double"   value="-6.0"/>
+        <param name="y0"            type="double"   value="-6.0"/>
+        <param name="z0"            type="double"   value="0.0"/>
+        <param name="x1"            type="double"   value="-6.0"/>
+        <param name="y1"            type="double"   value="-6.0"/>
+        <param name="z1"            type="double"   value="-1.0"/>
+        <param name="x2"            type="double"   value="0.0"/>
+        <param name="y2"            type="double"   value="-4.5"/>
+        <param name="z2"            type="double"   value="-1.0"/>
         <param name="steadyTime1"   type="double"   value="0.1"/>
+
+        <!-- Wind -->
         <param name="windX" type="double" value="1.0"/>
         <param name="windY" type="double" value="0.0"/>
         <param name="windZ" type="double" value="0.0"/>
     </node>
 
-    <!--<node pkg="quad_control" type="Controller" name="Controller" output="log">-->
     <node pkg="quad_control" type="PController" name="PController" output="screen">
         <!-- Mass and inertia parameters are understimated by 10% -->
-        <param name="m"     type="double" value="0.612"/>
-        <param name="Ibx"   type="double" value="0.0063"/>
-        <param name="Iby"   type="double" value="0.0063"/>
-        <param name="Ibz"   type="double" value="0.0108"/>
-
-        <!--<param name="kp"    type="double" value="1.0"/>
-        <param name="kpv"   type="double" value="1.0"/>
-        <param name="ke"    type="double" value="10.0"/>
-        <param name="kev"   type="double" value="10.0"/>-->
-        <param name="kpi"   type="double" value="1.0"/>
-        <param name="kpiv"  type="double" value="0.0"/>
-        <param name="kei"   type="double" value="1.0"/> <!--0.01-->
-        <param name="keiv"  type="double" value="0.0"/>
-        <param name="k1"    type="double" value="100.0"/>
-        <param name="k2"    type="double" value="10.0"/>
-        <param name="filterSteps" type="int" value="50"/>
-        <param name="c0"    type="double" value="10.0"/>
-        <param name="v"     type="double" value="10.0"/>
-        <param name="kp"    type="double" value="10.0"/>
-        <param name="kd"    type="double" value="2.0"/>
-        <param name="ko"    type="double" value="5.0"/>
-        <param name="estimator" type="bool" value="true"/>
-        <param name="filterBand" type="double" value="1.0"/>
+        <param name="m"             type="double"   value="0.612"/>
+        <param name="Ibx"           type="double"   value="0.0063"/>
+        <param name="Iby"           type="double"   value="0.0063"/>
+        <param name="Ibz"           type="double"   value="0.0108"/>
+        <param name="kpi"           type="double"   value="1.0"/>
+        <param name="kpiv"          type="double"   value="0.0"/>
+        <param name="kei"           type="double"   value="1.0"/>
+        <param name="keiv"          type="double"   value="0.0"/>
+        <param name="k1"            type="double"   value="100.0"/>
+        <param name="k2"            type="double"   value="10.0"/>
+        <param name="filterSteps"   type="int"      value="50"/>
+        <param name="c0"            type="double"   value="10.0"/>
+        <param name="v"             type="double"   value="10.0"/>
+        <param name="kp"            type="double"   value="10.0"/>
+        <param name="kd"            type="double"   value="2.0"/>
+        <param name="ko"            type="double"   value="5.0"/>
+        <param name="estimator"     type="bool"     value="true"/>
+        <param name="filterBand"    type="double"   value="1.0"/>
     </node>
 
     <group ns="wind">
@@ -118,8 +117,5 @@
         <param name="link"      type="string"   value="hummingbird/base_link"/>
         <param name="fx"        type="double"   value="1.0"/>
     </group>
-
-    <!--<node pkg="rosbag" type="record" name="record"
-        args="record -o $(find quad_control)/bags /trajectory /hummingbird/ground_truth/odometryNED /hummingbird/command/wrenchNED" />-->
 
 </launch>

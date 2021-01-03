@@ -1,13 +1,14 @@
 #ifndef _APPLANNER2D_
 #define _APPLANNER2D_
 
-#include "ros/ros.h"
-#include "quad_control/UAVPose.h"
-#include "nav_msgs/Path.h"
-#include "nav_msgs/MapMetaData.h"
+#include <ros/ros.h>
+#include <nav_msgs/Path.h>
+#include <nav_msgs/MapMetaData.h>
 #include <Eigen/Dense>
+
 #include "quad_control/PlanRequest.h"
 #include "quad_control/Trajectory.h"
+#include "quad_control/UAVPose.h"
 #include "MapAnalyzer.h"
 
 using namespace quad_control;
@@ -19,7 +20,8 @@ using namespace Eigen;
  * acting on the robot as a velocity, and the integration is realized through
  * Euler method.
  * It is assumed that each C-Obstacle has the same range of influence, and all
- * the repulsive force gains k_(r,i) are the same.
+ * the repulsive force gains k_(r,i) are the same. A distinction is possible
+ * between the outer walls and other obstacles.
  * Notice that the planning is made with respect to the world ENU frame.
  */
 class APPlanner2D{
@@ -38,11 +40,11 @@ public:
      * After the planning is made for the first time, the map is stored
      * You can use again the same map, setting to 0 the width or height in
      * req.map.info. In this way, the map is not analyzed again, and execution
-     * time is saved.
+     * time is spared.
      */
     void plan(PlanRequestPtr req);
 
-    // Main loop
+    /* Main loop */
     void run();
 
 
@@ -95,17 +97,22 @@ private:
     ros::Publisher _pathPub, _pub;
 
     double _rate;
+
     double _ka, _kr;    // Attractive and repulsive forces gain
-    double _etaObst, _etaWall, _etaMax;    // Range of influence
-    double _currMinDist2;
     double _gamma;      // Used for repulsive forces computation, can be 2 or 3
+
+    double _sampleMin, _sampleMax, _sampleAvg;      // Trajectory sample times
+
+    double _etaObst, _etaWall, _etaMax;    // Range of influence
+    double _currMinDist2;       // Minimum distance from robot to an obstacle
     double _p_eps;      // if position error <= eps, it is assumed error = 0
     double _o_eps;      // if orientation error <= eps, it is assumed error = 0
-    double _sampleMin, _sampleMax, _sampleAvg;
-    double _qdiffMin, _qdiffMax;
-    double _maxVertAcc;
-    bool _debugPath;    // if true, publish nav_msgs::Path debug msg
-    bool _done;
+    double _qdiffMin, _qdiffMax;    // Limits on q displacement for each step
+    double _goalDistMin, _goalDistAvg;  // Distance from goal limits that activate displacement capping
+    double _maxVertAcc; // Maximum vertical acceleration
+
+    bool _debugPath;    // If true, publish nav_msgs::Path debug msg
+    bool _done;         // True if trajectory has been planned and published
 
     nav_msgs::Path _path;
 

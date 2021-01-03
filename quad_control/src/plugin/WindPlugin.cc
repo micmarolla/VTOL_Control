@@ -1,9 +1,11 @@
 #include <string>
+
+#include <ros/ros.h>
 #include <gazebo/gazebo.hh>
 #include <gazebo/common/Plugin.hh>
 #include <gazebo/physics/physics.hh>
 #include <ignition/math/Vector3.hh>
-#include "ros/ros.h"
+
 #include "quad_control/wind.h"
 
 using namespace std;
@@ -12,7 +14,8 @@ namespace gazebo{
 
     /*
      * This plugin just apply a constant force (wind) on the UAV model.
-     * Currently, it applies a constant force of 1N along the x-direction of the world frame.
+     * Currently, it applies a constant force of 1N along the x-direction of the
+     * world frame (not the NED one!).
      */
     class WindPlugin : public WorldPlugin {
 
@@ -29,6 +32,7 @@ namespace gazebo{
 
             _world = world;
             _enabled = _nh.param<bool>("wind/enabled", false);
+
             if(_enabled){
                 // Retrieve force
                 _fx = _nh.param<double>("wind/fx", 0.0);
@@ -42,18 +46,15 @@ namespace gazebo{
             }
         }
 
-        // Apply force
+        /* Apply wind force on the UAV */
         void OnUpdate(){
-            // Plugin not enabled
-            if(!_enabled)
+            if(!_enabled)       // Plugin not enabled
                 return;
 
-            // Normal state
-            if(_uavBase)
+            if(_uavBase)        // Normal state
                 _uavBase->SetForce(ignition::math::Vector3d(_fx, _fy, _fz));
 
-            // Waiting for UAV spawning
-            else{
+            else{               // Waiting for UAV spawning
                 // Retrieve model
                 string modelName = _nh.param<string>("wind/model", "");
                 physics::ModelPtr model = _world->ModelByName(modelName);
@@ -70,11 +71,10 @@ namespace gazebo{
     private:
         ros::NodeHandle _nh;
         physics::WorldPtr _world;
-        physics::LinkPtr _uavBase;
-        event::ConnectionPtr _updateConnection;
-        double _fx, _fy, _fz;
+        physics::LinkPtr _uavBase;      // Pointer to the UAV base link
+        double _fx, _fy, _fz;           // Wind forces on the three world axis
         bool _enabled;
-
+        event::ConnectionPtr _updateConnection;
 
     };
 

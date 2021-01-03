@@ -73,10 +73,11 @@ add_message_files(
 )
 
 ## Generate services in the 'srv' folder
-add_service_files(
-  FILES
-    wind.srv
-)
+# add_service_files(
+#   FILES
+#     Service1.srv
+#     Service2.srv
+# )
 
 ## Generate actions in the 'action' folder
 #add_action_files(
@@ -158,17 +159,17 @@ link_directories(${GAZEBO_LIBRARY_DIRS})
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 
-add_executable(APPlanner2D src/APPlanner2D.cpp src/MapAnalyzer.cpp)
+add_executable(APPlanner2D src/plan/APPlanner2D.cpp src/plan/MapAnalyzer.cpp)
 target_link_libraries(APPlanner2D ${catkin_LIBRARIES})
 
-add_executable(Controller src/ControllerNode.cpp src/Controller.cpp)
+add_executable(Controller src/control/ControllerNode.cpp src/control/Controller.cpp)
 target_link_libraries(Controller ${catkin_LIBRARIES})
 
-add_executable(PController src/PControllerNode.cpp src/PController.cpp src/Controller.cpp)
+add_executable(PController src/control/PControllerNode.cpp src/control/PController.cpp src/control/Controller.cpp)
 target_link_libraries(PController ${catkin_LIBRARIES})
 
 add_executable(plannerTest src/plannerTest.cpp)
 target_link_libraries(plannerTest ${catkin_LIBRARIES})
 
-add_library(wind_plugin src/WindPlugin.cc)
+add_library(wind_plugin src/plugin/WindPlugin.cc)
 target_link_libraries(wind_plugin ${catkin_LIBRARIES} ${GAZEBO_LIBRARIES})

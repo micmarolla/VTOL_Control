@@ -1,11 +1,12 @@
 #ifndef _H_CONTROLLER_
 #define _H_CONTROLLER_
 
-#include "ros/ros.h"
+#include <ros/ros.h>
+#include <geometry_msgs/Accel.h>
+#include <nav_msgs/Odometry.h>
 #include <Eigen/Dense>
+
 #include "quad_control/UAVPose.h"
-#include "geometry_msgs/Accel.h"
-#include "nav_msgs/Odometry.h"
 #include "quad_control/Trajectory.h"
 #include "LP2Filter.h"
 
@@ -13,6 +14,8 @@
 
 using namespace Eigen;
 using namespace quad_control;
+
+typedef Matrix<double,6,1> Vector6d;
 
 /*
  * This is a hierarchical controller for the VTOL UAV. Starting from desired
@@ -38,22 +41,28 @@ public:
 protected:
     ros::NodeHandle _nh;
     double _rate;
+
     double _m;                              // Mass
     Matrix3d _Ib;                           // Inertia
     Matrix3d _Rb;                           // Body rotation matrix wrt worldNED
+
     double _uT;                             // Total thrust (cmd)
+    Vector3d _mud;                          // Desired mu (used to compute uT)
     Vector3d _tau;                          // Torques (cmd)
+
     Matrix3d _Q, _QT, _Q_inv, _Q_dot;       // Q matrix
     Matrix3d _C;                            // Coriolis matrix
+
     Vector3d _p_d;                          // Linear velocity
-    Vector3d _eta, _eta_d;
-    Vector3d _deta_d, _deta_dd;
-    Matrix<double,6,1> _e_eta;
-    Matrix<double,6,1> _e_p;
-    Vector3d _mud;
-    geometry_msgs::Accel _da;
-    Matrix<double,3,6> _Kpi, _Kei;          // Integral gains
-    Matrix<double,6,1> _epInt, _eoInt;      // Integral
+    Vector3d _eta, _eta_d;                  // Orientation and its derivative
+    geometry_msgs::Accel _da;               // Desired acceleration
+    Vector3d _deta_d, _deta_dd;             // Desired orientation and its der.
+
+    Vector6d _e_eta;                        // Orientation and der. error
+    Vector6d _e_p;                          // Position and lin vel error
+
+    Vector3d _epInt, _eoInt;                // Integral
+    Matrix3d _Kpi, _Kei;                    // Integral gains
 
 
     /*
@@ -78,10 +87,13 @@ protected:
      */
     void _innerLoop();
 
+    /* Controller core loop. Can be redefined by subclasses. */
     virtual void _coreLoop();
 
+    /* Compute desired mu. Can be redefined by subclasses. */
     virtual void _computeMu();
 
+    /* Compute tau (control wrench). Can be redefined by subclasses. */
     virtual void _computeTau();
 
 
@@ -90,28 +102,25 @@ private:
     ros::Subscriber _trajSub;               // Trajectory
     ros::Subscriber _odomSub;               // Odometry
     ros::Publisher _pub;                    // Command wrench
-    ros::Publisher _pointPub;
+    ros::Publisher _pointPub;               // Current trajectory point
 
     Matrix<double,3,6> _Kp, _Ke;            // Proportional gains
 
     Trajectory _traj;                       // Trajectory
     bool _trajReady;                        // True if trajectory is ready
-    int _trajStep;
-    int _remainingSteps, _doneSteps;
+    int _trajStep;                          // Current trajectory step
+    int _remainingSteps;                    // ..for the current traj point
 
-    ros::Time _startTime;                   // Time of trajectory starting
-    bool _started, _completed;              // Flag about trajectory status
+    bool _started, _completed;              // Trajectory status
 
     UAVPose _dp;                            // Desired pos
-    geometry_msgs::Accel _dv;               // Desired vel and acc
+    geometry_msgs::Accel _dv;               // Desired linear velocity
+    Vector3d _deta;                         // Desired orientation
 
-    nav_msgs::Odometry _odom;
+    nav_msgs::Odometry _odom;               // Odometry
     bool _odomReady;                        // True if odometry is ready
-
-    Vector3d _p;
-    Vector3d _omega;
-
-    Vector3d _deta;                         // Desired eta
+    Vector3d _p;                            // Current position
+    Vector3d _omega;                        // Current angular velocity
 
     LP2Filter<Vector2d> _filter;            // Low-pass 2nd order filter
     int _filterSteps;               // Number of filtering steps for each value

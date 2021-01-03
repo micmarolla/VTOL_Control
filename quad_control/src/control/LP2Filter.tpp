@@ -15,6 +15,7 @@ LP2Filter<T>::~LP2Filter(){
 
 template <typename T>
 void LP2Filter<T>::filter(T* signal, unsigned int length, double sampleTime, double k1, double k2, T cond1, T cond2){
+    // Clear old signals
     delete _f;
     delete _d;
     delete _dd;
@@ -26,6 +27,7 @@ void LP2Filter<T>::filter(T* signal, unsigned int length, double sampleTime, dou
     _d = new T[length];
     _dd = new T[length];
 
+    // Initial conditions and parameters
     _k1 = k1;
     _k2 = k2;
     _init1 = cond1;
@@ -33,6 +35,7 @@ void LP2Filter<T>::filter(T* signal, unsigned int length, double sampleTime, dou
     _t = sampleTime;
     _first = true;
 
+    // Filter
     for(int i=0; i < length; ++i){
         this->filterStep(signal[i]);
         _f[i] = _stepF;
@@ -75,7 +78,7 @@ void LP2Filter<T>::initFilterStep(double sampleTime, double k1, double k2, T con
 
 template <typename T>
 void LP2Filter<T>::filterStep(T signal){
-    if(_first){
+    if(_first){                     // First simulation step
         _stepF = _init1;
         _stepD = _k1 * (signal - _stepF);
         _x1 = _stepF + _t * _stepD;
@@ -86,7 +89,7 @@ void LP2Filter<T>::filterStep(T signal){
 
         _first = false;
     }
-    else{
+    else{                           // Normal simulation step
         _stepF = _x1;
         _stepD = _k1 * (signal - _stepF);
         _x1 = _x1 + _t * _stepD;

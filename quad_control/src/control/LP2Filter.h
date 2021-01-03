@@ -40,7 +40,8 @@ public:
      *  - k1, k2: filter's bandwidths
      *  - cond1, cond2: initial conditions
      */
-    void filter(T* signal, unsigned int length, double sampleTime, double k1, double k2, T cond1, T cond2);
+    void filter(T* signal, unsigned int length, double sampleTime, double k1,
+            double k2, T cond1, T cond2);
 
     // Set initial condition
     void setInitCond(T cond1, T cond2);

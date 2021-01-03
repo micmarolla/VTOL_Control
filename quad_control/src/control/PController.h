@@ -2,7 +2,9 @@
 #define _P_CONTROLLER_
 
 #include <Eigen/Dense>
+
 #include "Controller.h"
+#include "LP2Filter.h"
 
 using namespace Eigen;
 
@@ -19,26 +21,29 @@ public:
     ~PController(){}
 
 private:
-    bool _enableEstimator;
+    bool _enableEstimator;          // If true, external wrench is estimated
     double _c0;                     // Estimator params
-    Matrix<double,6,1> _Fe;         // Estimated wrench
+    Vector6d _Fe;                   // Estimated wrench
+
     Matrix3d _M;
     double _v;
-    Matrix3d _Ko, _Do;
-    Matrix3d _Kp, _Kd;
-    Matrix<double,6,1> _q_prev;
-    LP2Filter<Matrix<double,6,1>> _estFilter;
+    Matrix3d _Ko, _Do;              // Orientation gains
+    Matrix3d _Kp, _Kd;              // Position gains
+
+    Vector6d _q_prev;
+    LP2Filter<Vector6d> _estFilter; // Low-pass filter for estimates
 
 
-    /*
-     * Estimate external wrench based on the momentum of the system.
-     */
+    /* Estimate external wrench based on the momentum of the system. */
     void _estimateWrench();
 
+    /* Compute tau, i.e., the control torques. */
     void _computeTau();
 
+    /* Compute mu_d. */
     void _computeMu();
 
+    /* Controller core loop. */
     void _coreLoop();
 
 };

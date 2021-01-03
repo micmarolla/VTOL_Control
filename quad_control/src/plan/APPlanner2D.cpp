@@ -1,11 +1,13 @@
 #include "APPlanner2D.h"
+
 #include <cmath>
 #include <vector>
-#include "geometry_msgs/Accel.h"
+
+#include <geometry_msgs/Accel.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
 
-#define DEFAULT_STEADY_TIME     1.0     // seconds
+#define GRAVITY 9.81
 
 using namespace quad_control;
 using namespace Eigen;
@@ -22,6 +24,9 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _o_eps      = _nh.param<double>("o_eps", 0.001);
     _debugPath  = _nh.param<bool>("debugPath", true);
     _maxVertAcc = _nh.param<double>("maxVerticalAcc", 5.0);
+
+    _goalDistAvg = _nh.param<double>("goalDistAvg", 0.1);
+    _goalDistMin = _nh.param<double>("goalDistMin", 0.05);
 
     if(_nh.hasParam("sampleTime")){
         _sampleMin = _sampleMax = _sampleAvg
@@ -67,7 +72,7 @@ Vector4d APPlanner2D::_computeError(UAVPose q, UAVPose qd){
 
 
 UAVPose APPlanner2D::_eulerIntegration(UAVPose q, Vector4d ft, double sampleTime){
-    // Cap total displacement
+    // Cap total force
     if (_qdiffMax > 0){
         double diff = _qdiffMax;
         if(sampleTime == _sampleMin)
@@ -119,7 +124,8 @@ Vector4d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
     for (auto obj : obstacles){
         obj->dist2 *= pow(this->_mapInfo.resolution, 2); // convert to [meters^2]
 
-        // Get right wall: this works because the first chunk is always the wall
+        /* Distinguish between wall and obstacle:
+        this works because the first chunk is always the wall */
         if (firstObst){
             eta = _etaWall;
             _currMinDist2 = obj->dist2;
@@ -165,9 +171,9 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
 
         // Sample time
         double sample;
-        if (_currMinDist2 > 2*_etaMax || goalDist.norm() > 0.1)
+        if (_currMinDist2 > 2*_etaMax || goalDist.norm() > _goalDistAvg)
             sample = _sampleMax;        // Far from obstacles
-        else if (_currMinDist2 > _etaMax || goalDist.norm() > 0.05)
+        else if (_currMinDist2 > _etaMax || goalDist.norm() > _goalDistMin)
             sample = _sampleAvg;        // Mid-way
         else
             sample = _sampleMin;        // Near obstacles
@@ -253,6 +259,7 @@ void APPlanner2D::plan(PlanRequestPtr req){
         ++currPoint;
     }
 
+    // Wait for transform between world and worldNED
     if(_debugPath){
         tf::TransformListener _tf;
         try{
@@ -270,17 +277,18 @@ void APPlanner2D::plan(PlanRequestPtr req){
     _path.header.frame_id = "worldNED";
 
     // Plan all the segments
-    double steadyT = DEFAULT_STEADY_TIME;
+    double steadyT = 0;
     for(int i=1; i < req->q.size(); ++i){
         // Select steady time
         if(i-1 < req->steadyTime.size())
             steadyT = req->steadyTime[i-1];
         else
-            steadyT = DEFAULT_STEADY_TIME;
+            steadyT = 0;
 
         _planSegment(req->q[i-1], req->q[i], steadyT, trajectory, _path);
     }
 
+    // Publish trajectory
     if(_debugPath)
         this->_pathPub.publish(_path);
     this->_pub.publish(trajectory);

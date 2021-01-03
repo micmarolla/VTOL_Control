@@ -1,26 +1,27 @@
 #include "Controller.h"
+
 #include <cmath>
+
+#include <geometry_msgs/Wrench.h>
 #include <tf/tf.h>
 #include <tf/LinearMath/Matrix3x3.h>
 #include <tf_conversions/tf_eigen.h>
-#include "geometry_msgs/Wrench.h"
+
 #include "Utils.h"
-
-#define _P_EPS  0.005
-#define _O_EPS  0.01
-
 
 using namespace Eigen;
 
 Controller::Controller() : _nh("~"){
-    // Retrieve params. Default values are for AscTec Hummingbird UAV
+    _rate = _nh.param<double>("rate", 1000.0);
+
+    // Mass and inertia params. Default values are for AscTec Hummingbird UAV
     _m = _nh.param<double>("m", 0.68);
     _Ib = Matrix3d::Identity();
     _Ib(0,0) = _nh.param<double>("Ibx", 0.007);
     _Ib(1,1) = _nh.param<double>("Iby", 0.007);
     _Ib(2,2) = _nh.param<double>("Ibz", 0.012);
 
-    // TODO: Read Kp, Ke as matrix
+    // Proportional, derivative, integral gains
     double kp = _nh.param<double>("kp", 10.0);
     double kpv = _nh.param<double>("kpv", 10.0);
     double ke = _nh.param<double>("ke", 1.0);
@@ -30,19 +31,20 @@ Controller::Controller() : _nh("~"){
 
     double kpi = _nh.param<double>("kpi", 0.0);
     double kei = _nh.param<double>("kei", 0.0);
-    double kpiv = _nh.param<double>("kpiv", 0.0);
-    double keiv = _nh.param<double>("keiv", 0.0);
-    _Kpi << kpi*Matrix3d::Identity(), kpiv*Matrix3d::Identity();
-    _Kei << kei*Matrix3d::Identity(), keiv*Matrix3d::Identity();
+    _Kpi << kpi*Matrix3d::Identity();
+    _Kei << kei*Matrix3d::Identity();
 
-    _epInt << 0,0,0,0,0,0;
-    _eoInt << 0,0,0,0,0,0;
+    // Filtering params
+    double k1 = _nh.param<double>("k1", 100.0);
+    double k2 = _nh.param<double>("k2", 100.0);
+    _filter.initFilterStep(0.001, k1, k2, Vector2d::Zero(), Vector2d::Zero());
+    _filterSteps = _nh.param<double>("filterSteps", 1);
 
-    _rate = _nh.param<double>("rate", 1000.0);
+    _epInt = Vector3d::Zero();
+    _eoInt = Vector3d::Zero();
 
     _trajStep = 0;
     _remainingSteps = 0;
-    _doneSteps = 0;
     _trajReady = false;
 
     _odomReady = false;
@@ -50,12 +52,7 @@ Controller::Controller() : _nh("~"){
     _completed = false;
 
     _uT = 0;
-    _tau << 0,0,0;
-
-    double k1 = _nh.param<double>("k1", 100.0);
-    double k2 = _nh.param<double>("k2", 100.0);
-    _filter.initFilterStep(0.001, k1, k2, Vector2d::Zero(), Vector2d::Zero());
-    _filterSteps = _nh.param<double>("filterSteps", 1);
+    _tau = Vector3d::Zero();
 
     _trajSub = _nh.subscribe("/trajectory", 0, &Controller::trajectoryReceived, this);
     _odomSub = _nh.subscribe("/hummingbird/ground_truth/odometryNED", 0, &Controller::odomReceived, this);
@@ -109,7 +106,8 @@ void Controller::odomReceived(nav_msgs::OdometryPtr odom){
 void Controller::_getCurrentTrajPoint(){
     if(_completed)
         return;
-        
+
+    // Compute steps to simulate until the next trajectory point
     if(_remainingSteps <= 0)
         _remainingSteps = ceil(_traj.t[_trajStep++] * _rate);
 
@@ -156,22 +154,17 @@ void Controller::_computeTau(){
 
 
 void Controller::_outerLoop(){
-    //ROS_INFO("Outer loop");
-
     // Position error
     Vector3d ep = _p - Vector3d(_dp.position.x, _dp.position.y, _dp.position.z);
-    //ROS_INFO_STREAM("    Pos error: " << ep[0] << ", " << ep[1] << ", " << ep[2]);
 
     // Linear velocity error
     Vector3d epd = _p_d - Vector3d(_dv.linear.x, _dv.linear.y, _dv.linear.z);
-    //ROS_INFO_STREAM("    Lin vel error: " << epd[0] << ", " << epd[1] << ", " << epd[2]);
 
     // Compute mu_d
     _e_p << ep, epd;
-    _epInt += _e_p / _rate;
+    _epInt += ep / _rate;
 
     _computeMu();
-    //ROS_INFO_STREAM("    Mu: " << _mud[0] << ", " << _mud[1] << ", " << _mud[2]);
 
     // Compute outputs
     _uT = _m * sqrt(pow(_mud[0],2) + pow(_mud[1],2) + pow(_mud[2] - GRAVITY,2));
@@ -180,28 +173,21 @@ void Controller::_outerLoop(){
     _deta[1] = atan2(_mud[0]*cos(_dp.yaw) + _mud[1]*sin(_dp.yaw), _mud[2] - GRAVITY);
     _deta[1] += M_PI * ((_deta[1] > 0) ? -1 : 1);
     _deta[2] = _dp.yaw;
-    //ROS_INFO_STREAM("    des_eta: " << _deta[0] << ", " << _deta[1] << ", " << _deta[2]);
 }
 
 
 void Controller::_innerLoop(){
-    //ROS_INFO("Inner loop");
-
     // Compute derivatives of orientation
     this->_filter.filterSteps(_deta.head<2>(), _filterSteps);
     _deta_d << _filter.lastFirst(), _dv.angular.z;
     _deta_dd << _filter.lastSecond(), _da.angular.z;
-    //ROS_INFO_STREAM("    Filter vel: " << _deta_d[0] << ", " << _deta_d[1] << ", " << _deta_d[2]);
-    //ROS_INFO_STREAM("    Filter acc: " << _deta_dd[0] << ", " << _deta_dd[1] << ", " << _deta_dd[2]);
 
     // Compute orientation errors
     Vector3d eo = _eta - _deta;
     Vector3d eod = _eta_d - _deta_d;
-    //ROS_INFO_STREAM("    Orient err: " << eo[0] << ", " << eo[1] << ", " << eo[2]);
-    //ROS_INFO_STREAM("    Orient dot err: " << eod[0] << ", " << eod[1] << ", " << eod[2]);
 
     _e_eta << eo, eod;
-    _eoInt += _e_eta / _rate;
+    _eoInt += eo / _rate;
 
     _computeTau();
 }
@@ -227,17 +213,12 @@ void Controller::run(){
     while(ros::ok()){
         if(_trajReady && _odomReady){
             if(!_started){
-                _startTime = ros::Time::now();
                 _started = true;
                 ROS_INFO("Starting trajectory");
             }
 
             _getCurrentTrajPoint();
             _coreLoop();
-
-            //ROS_INFO_STREAM("uT = " << _uT);
-            //ROS_INFO_STREAM("tau: " << _tau[0] << ", " << _tau[1] << ", " << _tau[2]);
-            //ROS_INFO("=========================================");
 
             // Build command msg and publish it
             cmd.force.z = _uT;
