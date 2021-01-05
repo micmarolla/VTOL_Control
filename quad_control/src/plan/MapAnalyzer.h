@@ -78,6 +78,9 @@ public:
     vector<Chunk*> getObjAtMinDist(int rx, int ry);
 
 
+    int8_t* generateSubmap(int rx, int ry, int w, int h);
+
+
 private:
     vector<Chunk*> _chunks;     // Roots of detected chunks
     int8_t* _map;

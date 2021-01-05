@@ -2,6 +2,7 @@
 #define _NAVIGATION_FUNC
 
 #include <cstdint>
+#include <queue>
 #include <nav_msgs/OccupancyGrid.h>
 
 /*
@@ -44,17 +45,29 @@ public:
     bool scanned(){ return this->_scanned; }
 
     /*
-     * Scan the map, creating the navigation map.
+     * Return true if the map has been partially scanned, i.e., scanned only
+     * to reach goal from one specific position; false else.
      */
-    void scan(int goalX, int goalY);
+    bool partiallyScanned(){ return this->_partiallyScanned; }
+
+    /*
+     * Scan the map, creating the navigation map.
+     * ...
+     */
+    const int* scan(int goalX, int goalY, int rx=-1, int ry=-1);
+
+    std::queue<int>* getPath(int rx=-1, int ry=-1);
 
 
 private:
     int8_t* _map;
     int* _nav;                  // Navigation function
     int _w, _h;                 // Map's width and height
+    int _robot;                 // Current robot index
     bool _copied;               // If true, map memory is handled by this obj
-    bool _ready, _scanned;      // Status flags
+    bool _ready;                // Status flags
+    bool _scanned, _partiallyScanned;
+    std::queue<int> _path;                // Last generated path
 
 };
 

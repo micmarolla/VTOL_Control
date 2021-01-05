@@ -1,6 +1,5 @@
 #include "NavigationFunc.h"
-#include <queue>
-#include <iostream>
+#include <ros/console.h>
 
 /*
  * If map[i] > NAVFUNC_TRESH, it is assumed that there's an obstacle in that
@@ -15,7 +14,10 @@ NavigationFunc::NavigationFunc(){
     _map = 0;
     _nav = 0;
     _ready = false;
+    _scanned = false;
+    _partiallyScanned = false;
     _w = _h = 0;
+    _robot = -1;
 }
 
 NavigationFunc::~NavigationFunc(){
@@ -53,15 +55,18 @@ void NavigationFunc::setMap(int8_t *map, int w, int h, bool copyMap){
     this->_h = h;
 
     this->_ready = true;
+    this->_scanned = false;
+    this->_partiallyScanned = false;
 }
 
 
-void NavigationFunc::scan(int goalX, int goalY){
+const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
     int index = 0, value = 0;
     int x = goalX, y = goalY;
     int valCounter = 0, nextValCounter = 0, cellCounter = 0;
     int tempIndex = 0;
     std::queue<int> cells;  // upcoming cells to visit
+    this->_robot = rx * _w + ry;
 
     // Set goal value to zero
     index = x * _w + y;
@@ -70,11 +75,14 @@ void NavigationFunc::scan(int goalX, int goalY){
     ++valCounter;
     cells.push(index);
 
+    if(_robot == index)
+        return 0;
+
     while(cellCounter < _w * _h){
         // This should never happen!
         if(cells.empty()){
-            ROS_FATAL_ERROR("Error in scanning navigation function.");
-            return;
+            ROS_FATAL("Error in scanning navigation function.");
+            return 0;
         }
         index = cells.front();
         cells.pop();
@@ -100,6 +108,8 @@ void NavigationFunc::scan(int goalX, int goalY){
                     _nav[tempIndex] = value;
                     ++nextValCounter;
                 }
+                if(_robot == tempIndex)
+                    break;
             }
         }
 
@@ -113,6 +123,8 @@ void NavigationFunc::scan(int goalX, int goalY){
                     _nav[tempIndex] = value;
                     ++nextValCounter;
                 }
+                if(_robot == tempIndex)
+                    break;
             }
         }
 
@@ -126,6 +138,8 @@ void NavigationFunc::scan(int goalX, int goalY){
                     _nav[tempIndex] = value;
                     ++nextValCounter;
                 }
+                if(_robot == tempIndex)
+                    break;
             }
         }
 
@@ -139,9 +153,75 @@ void NavigationFunc::scan(int goalX, int goalY){
                     _nav[tempIndex] = value;
                     ++nextValCounter;
                 }
+                if(_robot == tempIndex)
+                    break;
             }
         }
     }
 
     _scanned = true;
+    if(rx != -1 && ry != -1)
+        _partiallyScanned = true;
+
+    return this->_nav;
+}
+
+
+queue<int>* NavigationFunc::getPath(int rx, int ry){
+    if(rx == -1 && ry == -1 && !_path.empty())
+        return &this->_path;
+
+    // Clear the queue
+    std::queue<int>().swap(_path);
+
+    // Build the new path: steepest descent method
+    int x = rx, y = ry;
+    int curr = x * _w + y;
+    if(rx == -1 && ry == -1)
+        curr = _robot;
+    int next = 0;
+    while(_nav[curr] > 0){
+        _path.push(curr);
+        y = curr % _w;
+        x = curr / _w;
+
+        // Check up
+        if(x < _h - 1){
+            next = curr + _w;
+            if(_nav[next] != -1 && _nav[next] < _nav[curr]){
+                curr = next;
+                continue;
+            }
+        }
+
+        // Check left
+        if(y > 0){
+            next = curr - 1;
+            if(_nav[next] != -1 && _nav[next] < _nav[curr]){
+                curr = next;
+                continue;
+            }
+        }
+
+        // Check right
+        if(y < _w){
+            next = curr + 1;
+            if(_nav[next] != -1 && _nav[next] < _nav[curr]){
+                curr = next;
+                continue;
+            }
+        }
+
+        // Check bottom
+        if(x > 0){
+            next = curr - _w;
+            if(_nav[next] != -1 && _nav[next] < _nav[curr]){
+                curr = next;
+                continue;
+            }
+        }
+    }
+
+    return &this->_path;
+
 }

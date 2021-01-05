@@ -10,6 +10,10 @@
 #include "quad_control/Trajectory.h"
 #include "quad_control/UAVPose.h"
 #include "MapAnalyzer.h"
+#include "NavigationFunc.h"
+
+#define GRAVITY 9.81
+#define MAX_ACC 6.0
 
 using namespace quad_control;
 using namespace Eigen;
@@ -81,6 +85,11 @@ private:
      */
     Vector4d _computeRepulsiveForce(double rx, double ry);
 
+    int _findNavSubGoal(int subOx, int subOy, int subW, int subH, int qgx, int qgy);
+
+    void _handleLocalMinima(UAVPose q, UAVPose qg, Trajectory& trajectory,
+        nav_msgs::Path& path);
+
     /*
      * Plan a trajectory along the segment between qs and qg.
      * The trajectory stays in qg for a time equal to steadyTime [seconds].
@@ -89,6 +98,11 @@ private:
      */
     void _planSegment(UAVPose qs, UAVPose qg, double steadyTime,
         Trajectory& trajectory, nav_msgs::Path& path);
+
+    double gAccCap(double a){
+        if(a > GRAVITY) return MAX_ACC;
+        return a;
+    }
 
 
 private:
@@ -113,6 +127,9 @@ private:
 
     bool _debugPath;    // If true, publish nav_msgs::Path debug msg
     bool _done;         // True if trajectory has been planned and published
+
+    double _navFuncRadius;  // Radius of the submap considered for navigation map
+    double _navVel;         // Velocity while in navigation map
 
     nav_msgs::Path _path;
 

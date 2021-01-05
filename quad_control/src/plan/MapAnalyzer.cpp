@@ -181,3 +181,26 @@ vector<Chunk*> MapAnalyzer::getObjAtMinDist(int rx, int ry){
 
     return mins;
 }
+
+int8_t* MapAnalyzer::generateSubmap(int rx, int ry, int w, int h){
+    int8_t* submap = new int8_t[w*h];
+
+    int subIndex = 0, mapIndex = 0;
+    int mapX = (rx - ceil((w-1)/2));
+    int mapY = (ry - ceil((h-1)/2));
+
+    while (subIndex < w*h){
+        mapIndex =  mapX * this->_w + mapY;
+        submap[subIndex++] = _map[mapIndex];
+
+        if(mapY < w - 1)
+            ++mapY;
+        else{
+            ++mapX;
+            mapY = 0;
+        }
+
+    }
+
+    return submap;
+}

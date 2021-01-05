@@ -2,31 +2,31 @@
 
 #include <cmath>
 #include <vector>
+#include <queue>
 
 #include <geometry_msgs/Accel.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
-
-#define GRAVITY 9.81
 
 using namespace quad_control;
 using namespace Eigen;
 
 APPlanner2D::APPlanner2D() : _nh("~"){
     // Retrieve params
-    _rate       = _nh.param<double>("rate", 1.0);
-    _ka         = _nh.param<double>("ka", 1.0);
-    _kr         = _nh.param<double>("kr", 1.0);
-    _qdiffMin   = _nh.param<double>("qDiffMin", 0.0);
-    _qdiffMax   = _nh.param<double>("qDiffMax", 0.0);
-    _gamma      = _nh.param<double>("gamma", 2.0);
-    _p_eps      = _nh.param<double>("p_eps", 0.001);
-    _o_eps      = _nh.param<double>("o_eps", 0.001);
-    _debugPath  = _nh.param<bool>("debugPath", true);
-    _maxVertAcc = _nh.param<double>("maxVerticalAcc", 5.0);
-
-    _goalDistAvg = _nh.param<double>("goalDistAvg", 0.1);
-    _goalDistMin = _nh.param<double>("goalDistMin", 0.05);
+    _rate           = _nh.param<double>("rate", 1.0);
+    _ka             = _nh.param<double>("ka", 1.0);
+    _kr             = _nh.param<double>("kr", 1.0);
+    _qdiffMin       = _nh.param<double>("qDiffMin", 0.0);
+    _qdiffMax       = _nh.param<double>("qDiffMax", 0.0);
+    _gamma          = _nh.param<double>("gamma", 2.0);
+    _p_eps          = _nh.param<double>("p_eps", 0.001);
+    _o_eps          = _nh.param<double>("o_eps", 0.001);
+    _debugPath      = _nh.param<bool>  ("debugPath", true);
+    _navVel         = _nh.param<double>("navVel", 1.0);
+    _maxVertAcc     = _nh.param<double>("maxVerticalAcc", 5.0);
+    _navFuncRadius  = _nh.param<double>("navFuncRadius", 2.0);
+    _goalDistAvg    = _nh.param<double>("goalDistAvg", 0.1);
+    _goalDistMin    = _nh.param<double>("goalDistMin", 0.05);
 
     if(_nh.hasParam("sampleTime")){
         _sampleMin = _sampleMax = _sampleAvg
@@ -150,6 +150,150 @@ Vector4d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
 }
 
 
+int APPlanner2D::_findNavSubGoal(int subOx, int subOy, int subW, int subH, int qgx, int qgy){
+    int bottomLeft = 0;
+    int topRight = subW * subH;
+
+    // Considera tutte le celle di bordo
+    // Per ognuna calcola la distanza
+    // Seleziona quella a distanza minore
+    //...;
+}
+
+
+void APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
+        Trajectory& trajectory, nav_msgs::Path& path){
+    // Robot and goal coordinates in map frame
+    int qx = (q.position.x - _mapInfo.origin.position.x) / _mapInfo.resolution;
+    int qy = (q.position.y - _mapInfo.origin.position.y) / _mapInfo.resolution;
+    int qgx = (qg.position.x - _mapInfo.origin.position.x) / _mapInfo.resolution;
+    int qgy = (qg.position.y - _mapInfo.origin.position.y) / _mapInfo.resolution;
+
+    // Compute submap size and robot position in submap
+    int subW, subH;
+    int halfSubW, halfSubH;
+    int subX, subY;
+    int subOx, subOy;   // Submap origin in map frame
+    int exceeding = 0;  // Number of submap cells outside the actual map borders
+
+    // Robot is always at the center...
+    subW = subH = 2 * _navFuncRadius / _mapInfo.resolution + 1;
+    halfSubW = halfSubH = (subW - 1) / 2;
+    subX = subY = ceil(subW/2);
+    subOx = qx - halfSubH;
+    subOy = qy - halfSubW;
+
+    // ... unless it's near the map border
+
+    // Left
+    if(qy - halfSubW < 0){
+        exceeding = halfSubW - qy;
+        subW -= exceeding;
+        subY = qy;
+        subOy += exceeding;
+    }
+
+    // Bottom
+    if(qx - halfSubH < 0){
+        exceeding = halfSubH - qx;
+        subH -= exceeding;
+        subX = qx;
+        subOx += exceeding;
+    }
+
+    // Right
+    if(qy + halfSubW >= _mapInfo.width){
+        exceeding = qy + halfSubW - _mapInfo.width;
+        subW -= exceeding;
+    }
+
+    // Top
+    if(qx + halfSubH >= _mapInfo.height){
+        exceeding = qx + halfSubH - _mapInfo.height;
+        subH -= exceeding;
+    }
+
+    // Construct submap and navigation function
+    int8_t* submap = _mapAnalyzer.generateSubmap(qx, qy, subW, subH);
+    NavigationFunc nf;
+    nf.setMap(submap, subW, subH);
+
+    // Find the submap point nearest to the actual goal
+    int subGoalX, subGoalY;
+    int subGoal = _findNavSubGoal(subOx, subOy, subW, subH, qgx, qgy);
+    subGoalX = subGoal / subW;
+    subGoalY = subGoal % subW;
+
+    // Build navigation function (lazy build, i.e., q is specified)
+    const int* nav = nf.scan(subGoalX, subGoalY, qx, qy);
+    std::queue<int>* nfPath = nf.getPath();
+
+    // Add the retrieved path to the trajectory
+    int next = 0, x = 0, y = 0;
+
+    UAVPose p;  // Keep the same z and yaw as starting pose q
+    p.position.z = q.position.z;
+    p.yaw = q.yaw;
+
+    // Velocity, acceleration
+    geometry_msgs::Accel v;
+    v.angular.x = v.angular.y = v.angular.z = v.linear.z = 0;
+    Vector2d vel, velPrev;
+    bool first = true;
+
+    while(!nfPath->empty()){
+        next = nfPath->front();
+        nfPath->pop();
+
+        // Cell coordinate in map frame
+        x = subOx + next / subW;
+        y = subOy + next % subW;
+
+        // Create the UAV pose, velocity and acceleration
+        p.position.x = x * _mapInfo.resolution + _mapInfo.origin.position.x;
+        p.position.y = y * _mapInfo.resolution + _mapInfo.origin.position.y;
+        trajectory.t.push_back(_sampleAvg);
+        trajectory.p.push_back(p);
+
+        // Velocity
+        vel << p.position.x, p.position.y;
+        vel = vel.normalized() * _navVel;
+        v.linear.x = vel[0];
+        v.linear.y = vel[1];
+        trajectory.v.push_back(v);
+
+        // Acceleration as simple numerical derivation
+        if(first)
+            first = false;
+        else{
+            v.linear.x = (vel[0] - velPrev[0]) / _sampleAvg;
+            v.linear.y = (vel[1] - velPrev[1]) / _sampleAvg;
+            trajectory.a.push_back(v);
+        }
+        velPrev = vel;
+
+        // Publish debug path
+        if(_debugPath){
+            geometry_msgs::PoseStamped pose;
+            pose.header.stamp = ros::Time::now();
+            pose.header.frame_id = "worldNED";
+            pose.pose.position = p.position;
+            pose.pose.orientation = tf::createQuaternionMsgFromYaw(p.yaw);
+            path.poses.push_back(pose);
+
+            this->_pathPub.publish(_path);
+        }
+    }
+
+    // Append final entries with null velocity and acceleration, and same position
+    v.linear.x = v.linear.y = 0;
+    trajectory.p.push_back(trajectory.p.back());
+    trajectory.v.push_back(v);
+    trajectory.a.push_back(v);  // Twice, for having the same number of points
+    trajectory.a.push_back(v);
+}
+
+
 void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
         Trajectory& trajectory, nav_msgs::Path& path){
 
@@ -188,8 +332,7 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
             v.linear.x  = (ft[0]-ftPrev[0]) / sample;
             v.linear.y  = (ft[1]-ftPrev[1]) / sample;
             v.linear.z  = (ft[2]-ftPrev[2]) / sample;
-            if (v.linear.z > 9.81)
-                v.linear.z = _maxVertAcc;
+            v.linear.z = gAccCap(v.linear.z);
             v.angular.z = (ft[3]-ftPrev[3]) / sample;
             trajectory.a.push_back(v);
         }
@@ -216,8 +359,12 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
         }
 
         // Check if goal has been reached
-        done = (Vector3d(err[0],err[1],err[2]).norm() <= this->_p_eps
-                && err[3] <= this->_o_eps);
+        done = (Vector3d(err[0],err[1],err[2]).norm() <= this->_p_eps && err[3] <= this->_o_eps);
+
+        // Check if the trajectory is stuck in a local minima
+        if (ft.norm() <= 1e-8 && !done)
+            _handleLocalMinima(q, qg, trajectory, path);
+
     }
 
     // Append final entries with null velocity and acceleration, and same position
