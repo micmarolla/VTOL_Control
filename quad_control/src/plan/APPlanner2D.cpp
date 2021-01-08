@@ -24,7 +24,7 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _debugPath      = _nh.param<bool>  ("debugPath", true);
     _navVel         = _nh.param<double>("navVel", 1.0);
     _maxVertAcc     = _nh.param<double>("maxVerticalAcc", 5.0);
-    _navFuncRadius  = _nh.param<double>("navFuncRadius", 2.0);
+    _navFuncRadius  = _nh.param<double>("navFuncRadius", 3.0);
     _goalDistAvg    = _nh.param<double>("goalDistAvg", 0.1);
     _goalDistMin    = _nh.param<double>("goalDistMin", 0.05);
 
@@ -49,6 +49,7 @@ APPlanner2D::APPlanner2D() : _nh("~"){
 
     _currMinDist2 = 0;
     _done = false;
+    _obstacleNearby = false;
 
     _sub = _nh.subscribe("/planRequest", 0, &APPlanner2D::plan, this);
     _pub = _nh.advertise<Trajectory>("/trajectory", 0, true);
@@ -103,6 +104,7 @@ Vector4d APPlanner2D::_computeForce(UAVPose q, Vector4d e){
 
     // Repulsive potentials
     fr = _computeRepulsiveForce(q.position.x, q.position.y);
+    _obstacleNearby = fr.norm() != 0;
 
     return fa + fr;
 }
@@ -151,17 +153,66 @@ Vector4d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
 
 
 int APPlanner2D::_findNavSubGoal(int subOx, int subOy, int subW, int subH, int qgx, int qgy){
-    int bottomLeft = 0;
-    int topRight = subW * subH;
+    if(qgx > subOx && qgx <= subOx + subW && qgy > subH && qgy <= subOy + subH)
+        return qgx * _mapInfo.width + qgy;
 
-    // Considera tutte le celle di bordo
-    // Per ognuna calcola la distanza
-    // Seleziona quella a distanza minore
-    //...;
+    int currX = subOx;
+    int currY = subOy;
+    int minX = currX;
+    int minY = currY;
+
+    bool clockwise = true;
+    double minDist2 = pow(currX-qgx,2) + pow(currY-qgy,2);
+    double tempDist2;
+
+    bool done = false;
+
+    while(!done){
+        if(_mapAnalyzer.cellValue(currX, currY) < 50){
+            tempDist2 = pow(currX-qgx,2) + pow(currY-qgy,2);
+            if(tempDist2 <= minDist2){
+                minDist2 = tempDist2;
+                minX = currX;
+                minY = currY;
+            }
+            else{
+                if(clockwise){
+                    clockwise = false;
+                    currX = subOx;
+                    currY = subOy;
+                }
+                else
+                    done = true;
+            }
+        }
+
+        // Retrieve the new cell
+        if(clockwise){
+            if(currY == subOy && currX < subOx + subH - 1)  // left side
+                ++currX;
+            else if(currX == subOx + subH -1 && currY < subOy + subW - 1) // top
+                ++currY;
+            else if(currY == subOy + subW - 1&& currX > subOx) // right
+                --currX;
+            else if(currX == subOx && currY > subOy) // bottom
+                --currY;
+        }else{
+            if(currY == subOy && currX > subOx)  // left side
+                --currX;
+            else if(currX == subOx + subH - 1 && currY > subOy) // top
+                --currY;
+            else if(currY == subOy + subW - 1 && currX < subOx + subH - 1) // right
+                ++currX;
+            else if(currX == subOx && currY < subOy + subW - 1) // bottom
+                ++currY;
+        }
+    }
+
+    return ((minX-subOx) * subW) + (minY-subOy);
 }
 
 
-void APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
+UAVPose APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
         Trajectory& trajectory, nav_msgs::Path& path){
     // Robot and goal coordinates in map frame
     int qx = (q.position.x - _mapInfo.origin.position.x) / _mapInfo.resolution;
@@ -214,18 +265,25 @@ void APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
     }
 
     // Construct submap and navigation function
+    ROS_INFO_STREAM("Generating submap...");
     int8_t* submap = _mapAnalyzer.generateSubmap(qx, qy, subW, subH);
     NavigationFunc nf;
     nf.setMap(submap, subW, subH);
 
     // Find the submap point nearest to the actual goal
+    ROS_INFO_STREAM("Finding subgoal...");
     int subGoalX, subGoalY;
     int subGoal = _findNavSubGoal(subOx, subOy, subW, subH, qgx, qgy);
     subGoalX = subGoal / subW;
     subGoalY = subGoal % subW;
 
     // Build navigation function (lazy build, i.e., q is specified)
-    const int* nav = nf.scan(subGoalX, subGoalY, qx, qy);
+    ROS_INFO_STREAM("Building navigation function...");
+    ROS_INFO_STREAM("    Map size: " << subW << ", " << subH);
+    ROS_INFO_STREAM("    SubRobot: " << subX << ", " << subY);
+    ROS_INFO_STREAM("    Subgoal: "  << subGoalX << ", " << subGoalY);
+
+    const int* nav = nf.scan(subGoalX, subGoalY, subX, subY);
     std::queue<int>* nfPath = nf.getPath();
 
     // Add the retrieved path to the trajectory
@@ -241,13 +299,14 @@ void APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
     Vector2d vel, velPrev;
     bool first = true;
 
+    ROS_INFO_STREAM("Building path (" << nfPath->size() << " points)...");
     while(!nfPath->empty()){
         next = nfPath->front();
         nfPath->pop();
 
         // Cell coordinate in map frame
-        x = subOx + next / subW;
-        y = subOy + next % subW;
+        x = next / subW + subOx;
+        y = next % subW + subOy;
 
         // Create the UAV pose, velocity and acceleration
         p.position.x = x * _mapInfo.resolution + _mapInfo.origin.position.x;
@@ -291,6 +350,8 @@ void APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
     trajectory.v.push_back(v);
     trajectory.a.push_back(v);  // Twice, for having the same number of points
     trajectory.a.push_back(v);
+
+    return p;
 }
 
 
@@ -304,6 +365,9 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
     Vector4d err, ft, ftPrev;
     Vector3d goalDist;
     bool done = false, first = true;
+
+    UAVPose prevQ = q;
+    int prevCounter = 0;
 
     while (!done){
         // Compute error, force, integrate and add to path
@@ -360,10 +424,20 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
 
         // Check if goal has been reached
         done = (Vector3d(err[0],err[1],err[2]).norm() <= this->_p_eps && err[3] <= this->_o_eps);
+        if(done)
+            break;
 
         // Check if the trajectory is stuck in a local minima
-        if (ft.norm() <= 1e-8 && !done)
-            _handleLocalMinima(q, qg, trajectory, path);
+        if (prevCounter < 50)   ++prevCounter;
+        else if (_obstacleNearby && q.position.z == prevQ.position.z){
+            prevCounter = 0;
+            Vector2d disp (q.position.x - prevQ.position.x, q.position.y - prevQ.position.y);
+            prevQ = q;
+            if(disp.norm() < 1e-2){
+                ROS_INFO("Stuck in a local minimum!");
+                q = _handleLocalMinima(q, qg, trajectory, path);
+            }
+        }
 
     }
 

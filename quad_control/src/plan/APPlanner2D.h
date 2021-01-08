@@ -87,7 +87,7 @@ private:
 
     int _findNavSubGoal(int subOx, int subOy, int subW, int subH, int qgx, int qgy);
 
-    void _handleLocalMinima(UAVPose q, UAVPose qg, Trajectory& trajectory,
+    UAVPose _handleLocalMinima(UAVPose q, UAVPose qg, Trajectory& trajectory,
         nav_msgs::Path& path);
 
     /*
@@ -127,6 +127,8 @@ private:
 
     bool _debugPath;    // If true, publish nav_msgs::Path debug msg
     bool _done;         // True if trajectory has been planned and published
+
+    bool _obstacleNearby;
 
     double _navFuncRadius;  // Radius of the submap considered for navigation map
     double _navVel;         // Velocity while in navigation map

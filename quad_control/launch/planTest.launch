@@ -56,23 +56,35 @@
     </node>
 
     <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="screen">
-        <param name="rate"          type="double"   value="100"/>
+        <param name="rate"          type="double"   value="10"/>
         <param name="debugPath"     type="bool"     value="true"/>
-        <param name="sampleTime"    type="double"   value="0.01"/>
-        <param name="eta"           type="double"   value="1.2"/>
-        <param name="ka"            type="double"   value="2.0"/>
-        <param name="kr"            type="double"   value="2.0"/>
+        <param name="sampleTimeMin" type="double"   value="0.005"/>
+        <param name="sampleTimeMax" type="double"   value="0.01"/>
+        <param name="etaWall"       type="double"   value="1.2"/>
+        <param name="etaObst"       type="double"   value="1.75"/>
+        <param name="ka"            type="double"   value="1.0"/>
+        <param name="kr"            type="double"   value="5.0"/>
     </node>
 
     <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen">
-        <param name="n"  type="int"    value="2"/>
-        <param name="x0" type="double" value="-6.0"/>
-        <param name="y0" type="double" value="-6.0"/>
-        <param name="z0" type="double" value="0.0"/>
-        <param name="x1" type="double" value="0.0"/>
-        <param name="y1" type="double" value="-5.5"/>
-        <param name="z1" type="double" value="0.0"/>
-        <param name="steadyTime1"   type="double"   value="0.5"/>
+        <!-- Trajectory -->
+        <param name="n"             type="int"      value="3"/>
+        <param name="x0"            type="double"   value="-6.0"/>
+        <param name="y0"            type="double"   value="-6.0"/>
+        <param name="z0"            type="double"   value="0.0"/>
+        <param name="x1"            type="double"   value="-6.0"/>
+        <param name="y1"            type="double"   value="-6.0"/>
+        <param name="z1"            type="double"   value="-1.0"/>
+        <!--<param name="x2"            type="double"   value="-6.0"/>
+        <param name="y2"            type="double"   value="-6.0"/>
+        <param name="z2"            type="double"   value="0.0"/>-->
+        <!--<param name="x2"            type="double"   value="0.0"/>
+        <param name="y2"            type="double"   value="-4.5"/>
+        <param name="z2"            type="double"   value="-1.0"/>-->
+        <param name="x2"            type="double"   value="0.5"/>
+        <param name="y2"            type="double"   value="-6.0"/>
+        <param name="z2"            type="double"   value="-1.0"/>
+        <param name="steadyTime1"   type="double"   value="0.1"/>
     </node>
 
 </launch>

@@ -80,6 +80,8 @@ public:
 
     int8_t* generateSubmap(int rx, int ry, int w, int h);
 
+    int8_t cellValue(int x, int y);
+
 
 private:
     vector<Chunk*> _chunks;     // Roots of detected chunks

@@ -10,6 +10,7 @@
 
 using namespace std;
 
+
 NavigationFunc::NavigationFunc(){
     _map = 0;
     _nav = 0;
@@ -63,7 +64,7 @@ void NavigationFunc::setMap(int8_t *map, int w, int h, bool copyMap){
 const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
     int index = 0, value = 0;
     int x = goalX, y = goalY;
-    int valCounter = 0, nextValCounter = 0, cellCounter = 0;
+    int valCounter = 0, nextValCounter = 0;
     int tempIndex = 0;
     std::queue<int> cells;  // upcoming cells to visit
     this->_robot = rx * _w + ry;
@@ -71,17 +72,16 @@ const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
     // Set goal value to zero
     index = x * _w + y;
     this->_nav[index] = 0;
-    ++cellCounter;
     ++valCounter;
     cells.push(index);
 
     if(_robot == index)
         return 0;
 
-    while(cellCounter < _w * _h){
+    while(true){
         // This should never happen!
         if(cells.empty()){
-            ROS_FATAL("Error in scanning navigation function.");
+            ROS_FATAL("Error in scanning navigation function. Maybe goal is outside the map?");
             return 0;
         }
         index = cells.front();
@@ -91,7 +91,7 @@ const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
 
         // Get current value
         --valCounter;
-        if(valCounter <= 0){
+        if(valCounter <=  0){
             ++value;
             valCounter = nextValCounter;
             nextValCounter = 0;
@@ -102,14 +102,13 @@ const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
         if(x < _h - 1){
             tempIndex = index + _w;
             if(_nav[tempIndex] == -1){
-                cells.push(tempIndex);
-                ++cellCounter;
                 if(_map[tempIndex] < NAVFUNC_TRESH){
+                    cells.push(tempIndex);
                     _nav[tempIndex] = value;
                     ++nextValCounter;
+                    if(_robot == tempIndex)
+                        break;
                 }
-                if(_robot == tempIndex)
-                    break;
             }
         }
 
@@ -117,14 +116,13 @@ const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
         if(y > 0){
             tempIndex = index - 1;
             if(_nav[tempIndex] == -1){
-                cells.push(tempIndex);
-                ++cellCounter;
                 if(_map[tempIndex] < NAVFUNC_TRESH){
+                    cells.push(tempIndex);
                     _nav[tempIndex] = value;
                     ++nextValCounter;
+                    if(_robot == tempIndex)
+                        break;
                 }
-                if(_robot == tempIndex)
-                    break;
             }
         }
 
@@ -132,14 +130,13 @@ const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
         if(y < _w - 1){
             tempIndex = index + 1;
             if(_nav[tempIndex] == -1){
-                cells.push(tempIndex);
-                ++cellCounter;
                 if(_map[tempIndex] < NAVFUNC_TRESH){
+                    cells.push(tempIndex);
                     _nav[tempIndex] = value;
                     ++nextValCounter;
+                    if(_robot == tempIndex)
+                        break;
                 }
-                if(_robot == tempIndex)
-                    break;
             }
         }
 
@@ -147,16 +144,16 @@ const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
         if(x > 0){
             tempIndex = index - _w;
             if(_nav[tempIndex] == -1){
-                cells.push(tempIndex);
-                ++cellCounter;
                 if(_map[tempIndex] < NAVFUNC_TRESH){
+                    cells.push(tempIndex);
                     _nav[tempIndex] = value;
                     ++nextValCounter;
+                    if(_robot == tempIndex)
+                        break;
                 }
-                if(_robot == tempIndex)
-                    break;
             }
         }
+
     }
 
     _scanned = true;
@@ -188,7 +185,7 @@ queue<int>* NavigationFunc::getPath(int rx, int ry){
         // Check up
         if(x < _h - 1){
             next = curr + _w;
-            if(_nav[next] != -1 && _nav[next] < _nav[curr]){
+            if(_nav[next] != -1 && _nav[next] <= _nav[curr]){
                 curr = next;
                 continue;
             }
@@ -197,7 +194,7 @@ queue<int>* NavigationFunc::getPath(int rx, int ry){
         // Check left
         if(y > 0){
             next = curr - 1;
-            if(_nav[next] != -1 && _nav[next] < _nav[curr]){
+            if(_nav[next] != -1 && _nav[next] <= _nav[curr]){
                 curr = next;
                 continue;
             }
@@ -206,7 +203,7 @@ queue<int>* NavigationFunc::getPath(int rx, int ry){
         // Check right
         if(y < _w){
             next = curr + 1;
-            if(_nav[next] != -1 && _nav[next] < _nav[curr]){
+            if(_nav[next] != -1 && _nav[next] <= _nav[curr]){
                 curr = next;
                 continue;
             }
@@ -215,12 +212,14 @@ queue<int>* NavigationFunc::getPath(int rx, int ry){
         // Check bottom
         if(x > 0){
             next = curr - _w;
-            if(_nav[next] != -1 && _nav[next] < _nav[curr]){
+            if(_nav[next] != -1 && _nav[next] <= _nav[curr]){
                 curr = next;
                 continue;
             }
         }
     }
+
+    _path.push(curr);   // Add goal cell
 
     return &this->_path;
 

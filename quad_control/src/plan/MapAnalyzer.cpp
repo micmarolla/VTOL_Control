@@ -142,6 +142,13 @@ void MapAnalyzer::scan(){
 }
 
 
+int8_t MapAnalyzer::cellValue(int x, int y){
+    if (!_scanned)
+        return -1;
+    return _map[x*_w + y];
+}
+
+
 Chunk* MapAnalyzer::_computeChunkDist(Chunk *chunk, int rx, int ry){
     if (chunk == 0)
         return 0;
