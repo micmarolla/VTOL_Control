@@ -22,9 +22,9 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _p_eps          = _nh.param<double>("p_eps", 0.001);
     _o_eps          = _nh.param<double>("o_eps", 0.001);
     _debugPath      = _nh.param<bool>  ("debugPath", true);
-    _navVel         = _nh.param<double>("navVel", 1.0);
     _maxVertAcc     = _nh.param<double>("maxVerticalAcc", 5.0);
     _navFuncRadius  = _nh.param<double>("navFuncRadius", 3.0);
+    _navVel         = _nh.param<double>("navVelocity", 1.0);
     _goalDistAvg    = _nh.param<double>("goalDistAvg", 0.1);
     _goalDistMin    = _nh.param<double>("goalDistMin", 0.05);
 
@@ -36,6 +36,7 @@ APPlanner2D::APPlanner2D() : _nh("~"){
         _sampleMax = _nh.param<double>("sampleTimeMax", 0.01);
         _sampleAvg = (_sampleMin + _sampleMax) / 2.0;
     }
+    _navSample = _nh.param<double>("navSampleTime", _sampleMin);
 
     // Eta
     if(_nh.hasParam("eta")){
@@ -46,6 +47,8 @@ APPlanner2D::APPlanner2D() : _nh("~"){
         _etaObst = _nh.param<double>("etaObst", 1.0);
     }
     _etaMax = (_etaObst > _etaWall) ? _etaObst : _etaWall;
+
+    _navEta = _nh.param<double>("navEta", 0.5);
 
     _currMinDist2 = 0;
     _done = false;
@@ -265,82 +268,124 @@ UAVPose APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
     }
 
     // Construct submap and navigation function
-    ROS_INFO_STREAM("Generating submap...");
+    ROS_INFO_STREAM("APPlanner2D: Generating submap...");
     int8_t* submap = _mapAnalyzer.generateSubmap(qx, qy, subW, subH);
     NavigationFunc nf;
     nf.setMap(submap, subW, subH);
 
     // Find the submap point nearest to the actual goal
-    ROS_INFO_STREAM("Finding subgoal...");
+    ROS_INFO_STREAM("APPlanner2D: Finding subgoal...");
     int subGoalX, subGoalY;
     int subGoal = _findNavSubGoal(subOx, subOy, subW, subH, qgx, qgy);
     subGoalX = subGoal / subW;
     subGoalY = subGoal % subW;
 
     // Build navigation function (lazy build, i.e., q is specified)
-    ROS_INFO_STREAM("Building navigation function...");
-    ROS_INFO_STREAM("    Map size: " << subW << ", " << subH);
-    ROS_INFO_STREAM("    SubRobot: " << subX << ", " << subY);
-    ROS_INFO_STREAM("    Subgoal: "  << subGoalX << ", " << subGoalY);
+    ROS_INFO_STREAM("APPlanner2D: Building navigation function...");
 
-    const int* nav = nf.scan(subGoalX, subGoalY, subX, subY);
+    const int* nav = nf.scan(subGoalX, subGoalY, _navEta/_mapInfo.resolution, subX, subY);
     std::queue<int>* nfPath = nf.getPath();
 
-    // Add the retrieved path to the trajectory
-    int next = 0, x = 0, y = 0;
+    return _interpNavTraj(q, qx, qy, nfPath, subOx, subOy, subW, subH, trajectory, path);
+}
 
-    UAVPose p;  // Keep the same z and yaw as starting pose q
-    p.position.z = q.position.z;
-    p.yaw = q.yaw;
 
-    // Velocity, acceleration
-    geometry_msgs::Accel v;
-    v.angular.x = v.angular.y = v.angular.z = v.linear.z = 0;
-    Vector2d vel, velPrev;
+UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* nfPath,
+        int subOx, int subOy, int subW, int subH,
+        Trajectory& trajectory, nav_msgs::Path& path){
+
+    if(nfPath->empty())
+        return q;
+
+    ROS_INFO_STREAM("APPlanner2D: Interpolating navigation function path (" <<
+        nfPath->size() << " points)...");
+
+    Vector2d velocity, velocityPrev;
+    int currCell;
+    int cellX, cellY;
+    double nextX, nextY;
+    Vector2d err;
+    bool nextChangeDirection;
     bool first = true;
 
-    ROS_INFO_STREAM("Building path (" << nfPath->size() << " points)...");
+    geometry_msgs::Accel v;
+    v.angular.x = v.angular.y = v.angular.z = v.linear.z = 0;
+    geometry_msgs::PoseStamped pose;
+
+    // Get initial cell
+    int prevX = qx, prevY = qy;
+
     while(!nfPath->empty()){
-        next = nfPath->front();
+
+        // Retrieve current cell coordinate in world frame
+        currCell = nfPath->front();
         nfPath->pop();
+        cellX = currCell / subW + subOx;
+        nextX = cellX * _mapInfo.resolution + _mapInfo.origin.position.x;
+        cellY = currCell % subW + subOy;
+        nextY = cellY * _mapInfo.resolution + _mapInfo.origin.position.y;
 
-        // Cell coordinate in map frame
-        x = next / subW + subOx;
-        y = next % subW + subOy;
-
-        // Create the UAV pose, velocity and acceleration
-        p.position.x = x * _mapInfo.resolution + _mapInfo.origin.position.x;
-        p.position.y = y * _mapInfo.resolution + _mapInfo.origin.position.y;
-        trajectory.t.push_back(_sampleAvg);
-        trajectory.p.push_back(p);
-
-        // Velocity
-        vel << p.position.x, p.position.y;
-        vel = vel.normalized() * _navVel;
-        v.linear.x = vel[0];
-        v.linear.y = vel[1];
-        trajectory.v.push_back(v);
-
-        // Acceleration as simple numerical derivation
-        if(first)
-            first = false;
-        else{
-            v.linear.x = (vel[0] - velPrev[0]) / _sampleAvg;
-            v.linear.y = (vel[1] - velPrev[1]) / _sampleAvg;
-            trajectory.a.push_back(v);
+        // The next cell will change direction?
+        nextChangeDirection = true;
+        if(!nfPath->empty()){
+            int nextCell = nfPath->front();
+            int xx = nextCell / subW + subOx;
+            int yy = nextCell % subW + subOy;
+            if( (prevY == cellY && cellY == yy) ||      // vertical
+                    (prevX == cellX && cellX == xx))    // horizontal
+                nextChangeDirection = false;
         }
-        velPrev = vel;
+        prevX = cellX;
+        prevY = cellY;
 
-        // Publish debug path
-        if(_debugPath){
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = ros::Time::now();
-            pose.header.frame_id = "worldNED";
-            pose.pose.position = p.position;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(p.yaw);
-            path.poses.push_back(pose);
+        // Compute error
+        err << nextX - q.position.x, nextY - q.position.y;
 
-            this->_pathPub.publish(_path);
+        while(err.norm() > 5e-3){
+
+            // Compute velocity
+            velocity = err.normalized() * _navVel;
+            if(nextChangeDirection && err.norm() < 1){
+                velocity[0] *= abs(err[0]);
+                velocity[1] *= abs(err[1]);
+            }
+
+            // Compute displacement
+            q.position.x += velocity[0] * _navSample;
+            q.position.y += velocity[1] * _navSample;
+
+            // Append point to trajectory
+            trajectory.t.push_back(_sampleAvg);
+            trajectory.p.push_back(q);
+
+            // Build velocity
+            v.linear.x = velocity[0];
+            v.linear.y = velocity[1];
+            trajectory.v.push_back(v);
+
+            // Build acceleration (simple numerical derivation)
+            if(first)
+                first = false;
+            else{
+                v.linear.x = (velocity[0] - velocityPrev[0]) / _navSample;
+                v.linear.y = (velocity[1] - velocityPrev[1]) / _navSample;
+                trajectory.a.push_back(v);
+            }
+            velocityPrev = velocity;
+
+            // Publish debug path
+            if(_debugPath){
+
+                pose.header.stamp = ros::Time::now();
+                pose.header.frame_id = "worldNED";
+                pose.pose.position = q.position;
+                pose.pose.orientation = tf::createQuaternionMsgFromYaw(q.yaw);
+                path.poses.push_back(pose);
+
+                this->_pathPub.publish(_path);
+            }
+
+            err << nextX - q.position.x, nextY - q.position.y;
         }
     }
 
@@ -351,7 +396,7 @@ UAVPose APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
     trajectory.a.push_back(v);  // Twice, for having the same number of points
     trajectory.a.push_back(v);
 
-    return p;
+    return q;
 }
 
 
@@ -428,16 +473,16 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
             break;
 
         // Check if the trajectory is stuck in a local minima
-        if (prevCounter < 50)   ++prevCounter;
-        else if (_obstacleNearby && q.position.z == prevQ.position.z){
-            prevCounter = 0;
+        if (_obstacleNearby && ft.norm() < 0.1){
             Vector2d disp (q.position.x - prevQ.position.x, q.position.y - prevQ.position.y);
-            prevQ = q;
             if(disp.norm() < 1e-2){
-                ROS_INFO("Stuck in a local minimum!");
+                ROS_INFO("APPlanner2D: Stuck in a local minimum!");
                 q = _handleLocalMinima(q, qg, trajectory, path);
+                ROS_INFO("APPlanner2D: Back to normal planning.");
             }
         }
+        prevQ = q;
+
 
     }
 
@@ -447,9 +492,10 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
         v.angular.x = v.angular.y = v.angular.z = 0;
         trajectory.p.push_back(trajectory.p.back());
         trajectory.v.push_back(v);
-        trajectory.a.push_back(v);  // Twice, for having the same number of points
         trajectory.a.push_back(v);
+        // o va qui? :/
     }
+    trajectory.a.push_back(v); // Twice, for having the same number of points
 }
 
 
@@ -458,7 +504,7 @@ void APPlanner2D::plan(PlanRequestPtr req){
 
     // Check number of points in the trajectory
     if(req->q.size() <= 1){
-        ROS_ERROR("Number of points in PlanRequest must be at least 2.");
+        ROS_ERROR("APPlanner2D: Number of points in PlanRequest must be at least 2.");
         return;
     }
 
@@ -472,9 +518,9 @@ void APPlanner2D::plan(PlanRequestPtr req){
     for(auto q : req->q){
         fr_g = _computeRepulsiveForce(q.position.x, q.position.y);
         if(fr_g[0] != 0 || fr_g[1] != 0){
-            ROS_ERROR_STREAM("Repulsive forces in configurations " <<
+            ROS_ERROR_STREAM("APPlanner2D: Repulsive forces in configurations " <<
                 currPoint << " are not null. Planning is not possible");
-            ROS_ERROR_STREAM("Distance from the nearest obstacle: " << sqrt(_currMinDist2));
+            ROS_ERROR_STREAM("APPlanner2D: Distance from the nearest obstacle: " << sqrt(_currMinDist2));
             return;
         }
         ++currPoint;

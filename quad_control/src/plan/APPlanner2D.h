@@ -1,6 +1,8 @@
 #ifndef _APPLANNER2D_
 #define _APPLANNER2D_
 
+#include <queue>
+
 #include <ros/ros.h>
 #include <nav_msgs/Path.h>
 #include <nav_msgs/MapMetaData.h>
@@ -87,6 +89,10 @@ private:
 
     int _findNavSubGoal(int subOx, int subOy, int subW, int subH, int qgx, int qgy);
 
+    UAVPose _interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* nfPath,
+        int subOx, int subOy, int subW, int subH,
+        Trajectory& trajectory, nav_msgs::Path& path);
+
     UAVPose _handleLocalMinima(UAVPose q, UAVPose qg, Trajectory& trajectory,
         nav_msgs::Path& path);
 
@@ -132,6 +138,8 @@ private:
 
     double _navFuncRadius;  // Radius of the submap considered for navigation map
     double _navVel;         // Velocity while in navigation map
+    double _navEta;
+    double _navSample;
 
     nav_msgs::Path _path;
 

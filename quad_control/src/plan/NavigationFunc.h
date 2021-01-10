@@ -54,9 +54,15 @@ public:
      * Scan the map, creating the navigation map.
      * ...
      */
-    const int* scan(int goalX, int goalY, int rx=-1, int ry=-1);
+    const int* scan(int goalX, int goalY, int eta, int rx=-1, int ry=-1);
 
     std::queue<int>* getPath(int rx=-1, int ry=-1);
+
+    bool isObstacle(int x, int y, int eta);
+    bool isObstacle(int index, int eta);
+
+private:
+    bool _isObstacle(int x, int y, int index, int eta);
 
 
 private:

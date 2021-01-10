@@ -60,7 +60,7 @@
         <param name="frame_id" type="string" value="world"/>
     </node>
 
-    <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="log">
+    <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="screen">
         <param name="rate"          type="double"   value="10"/>
         <param name="debugPath"     type="bool"     value="true"/>
         <param name="sampleTimeMin" type="double"   value="0.005"/>
@@ -69,6 +69,9 @@
         <param name="etaObst"       type="double"   value="1.75"/>
         <param name="ka"            type="double"   value="1.0"/>
         <param name="kr"            type="double"   value="5.0"/>
+        <param name="navFuncRadius" type="double"   value="3.0"/>
+        <param name="navEta"        type="double"   value="0.3"/>
+        <param name="navVelocity"   type="double"   value="0.5"/>
     </node>
 
     <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen">
@@ -80,9 +83,6 @@
         <param name="x1"            type="double"   value="-6.0"/>
         <param name="y1"            type="double"   value="-6.0"/>
         <param name="z1"            type="double"   value="-1.0"/>
-        <!--<param name="x2"            type="double"   value="-6.0"/>
-        <param name="y2"            type="double"   value="-6.0"/>
-        <param name="z2"            type="double"   value="0.0"/>-->
         <!--<param name="x2"            type="double"   value="0.0"/>
         <param name="y2"            type="double"   value="-4.5"/>
         <param name="z2"            type="double"   value="-1.0"/>-->

@@ -61,7 +61,41 @@ void NavigationFunc::setMap(int8_t *map, int w, int h, bool copyMap){
 }
 
 
-const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
+bool NavigationFunc::isObstacle(int x, int y, int eta){
+    if(!_ready) return false;
+    int index = x * this->_w + y;
+    return _isObstacle(x, y, index, eta);
+}
+
+bool NavigationFunc::isObstacle(int index, int eta){
+    if(!_ready) return false;
+    int x = index / this->_w;
+    int y = index % this->_w;
+    return _isObstacle(x, y, index, eta);
+}
+
+bool NavigationFunc::_isObstacle(int x, int y, int index, int eta){
+    if(!_ready)                             return false;
+    if(_map[index] > NAVFUNC_TRESH)         return true;
+
+    int i;
+    int firstRow = (x + eta <= _h) ? (x + eta) : _h;
+    int lastRow  = (x - eta >= 0)  ? (x - eta) : 0;
+    int firstCol = (y - eta >= 0)  ? (y - eta) : 0;
+    int lastCol  = (y + eta <= _w) ? (y + eta) : _w;
+    for (int r = firstRow; r >= lastRow; --r){
+        for(int c = firstCol; c <= lastCol; ++c){
+            i = r * this->_w + c;
+            if(_map[i] > NAVFUNC_TRESH)
+                return true;
+        }
+    }
+    return false;
+}
+
+
+
+const int* NavigationFunc::scan(int goalX, int goalY, int eta, int rx, int ry){
     int index = 0, value = 0;
     int x = goalX, y = goalY;
     int valCounter = 0, nextValCounter = 0;
@@ -102,7 +136,7 @@ const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
         if(x < _h - 1){
             tempIndex = index + _w;
             if(_nav[tempIndex] == -1){
-                if(_map[tempIndex] < NAVFUNC_TRESH){
+                if(!isObstacle(tempIndex, eta)){
                     cells.push(tempIndex);
                     _nav[tempIndex] = value;
                     ++nextValCounter;
@@ -116,7 +150,7 @@ const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
         if(y > 0){
             tempIndex = index - 1;
             if(_nav[tempIndex] == -1){
-                if(_map[tempIndex] < NAVFUNC_TRESH){
+                if(!isObstacle(tempIndex, eta)){
                     cells.push(tempIndex);
                     _nav[tempIndex] = value;
                     ++nextValCounter;
@@ -130,7 +164,7 @@ const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
         if(y < _w - 1){
             tempIndex = index + 1;
             if(_nav[tempIndex] == -1){
-                if(_map[tempIndex] < NAVFUNC_TRESH){
+                if(!isObstacle(tempIndex, eta)){
                     cells.push(tempIndex);
                     _nav[tempIndex] = value;
                     ++nextValCounter;
@@ -144,7 +178,7 @@ const int* NavigationFunc::scan(int goalX, int goalY, int rx, int ry){
         if(x > 0){
             tempIndex = index - _w;
             if(_nav[tempIndex] == -1){
-                if(_map[tempIndex] < NAVFUNC_TRESH){
+                if(!isObstacle(tempIndex, eta)){
                     cells.push(tempIndex);
                     _nav[tempIndex] = value;
                     ++nextValCounter;
