@@ -32,6 +32,7 @@ private:
 
     Vector6d _q_prev;
     LP2Filter<Vector6d> _estFilter; // Low-pass filter for estimates
+    int _estFilterSteps;
 
 
     /* Estimate external wrench based on the momentum of the system. */

@@ -8,25 +8,31 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
 
+#include "common.h"
+
 using namespace quad_control;
 using namespace Eigen;
 
 APPlanner2D::APPlanner2D() : _nh("~"){
     // Retrieve params
-    _rate           = _nh.param<double>("rate", 1.0);
-    _ka             = _nh.param<double>("ka", 1.0);
-    _kr             = _nh.param<double>("kr", 1.0);
-    _qdiffMin       = _nh.param<double>("qDiffMin", 0.0);
-    _qdiffMax       = _nh.param<double>("qDiffMax", 0.0);
-    _gamma          = _nh.param<double>("gamma", 2.0);
-    _p_eps          = _nh.param<double>("p_eps", 0.001);
-    _o_eps          = _nh.param<double>("o_eps", 0.001);
-    _debugPath      = _nh.param<bool>  ("debugPath", true);
-    _maxVertAcc     = _nh.param<double>("maxVerticalAcc", 5.0);
-    _navFuncRadius  = _nh.param<double>("navFuncRadius", 3.0);
-    _navVel         = _nh.param<double>("navVelocity", 1.0);
-    _goalDistAvg    = _nh.param<double>("goalDistAvg", 0.1);
-    _goalDistMin    = _nh.param<double>("goalDistMin", 0.05);
+    _rate            = _nh.param<double>("rate",            1.0);
+    _ka              = _nh.param<double>("ka",              1.0);
+    _kr              = _nh.param<double>("kr",              1.0);
+    _qdiffMin        = _nh.param<double>("qDiffMin",        0.0);
+    _qdiffMax        = _nh.param<double>("qDiffMax",        0.0);
+    _gamma           = _nh.param<double>("gamma",           2.0);
+    _p_eps           = _nh.param<double>("p_eps",           0.001);
+    _o_eps           = _nh.param<double>("o_eps",           0.001);
+    _debugPath       = _nh.param<bool>  ("debugPath",       true);
+    _maxVertAcc      = _nh.param<double>("maxVerticalAcc",  5.0);
+    _navFuncRadius   = _nh.param<double>("navFuncRadius",   3.0);
+    _navVel          = _nh.param<double>("navVelocity",     1.0);
+    _goalDistAvg     = _nh.param<double>("goalDistAvg",     0.1);
+    _goalDistMin     = _nh.param<double>("goalDistMin",     0.05);
+    _navErrTolerance = _nh.param<double>("navErrTolerance", 0.005);
+    _navMaxFt        = _nh.param<double>("navMaxFt",        0.1);
+    _navMaxDisp      = _nh.param<double>("navMaxDisp",      0.01);
+
 
     if(_nh.hasParam("sampleTime")){
         _sampleMin = _sampleMax = _sampleAvg
@@ -90,7 +96,7 @@ UAVPose APPlanner2D::_eulerIntegration(UAVPose q, Vector4d ft, double sampleTime
     q.position.x = q.position.x + sampleTime * ft[0];
     q.position.y = q.position.y + sampleTime * ft[1];
     q.position.z = q.position.z + sampleTime * ft[2];
-    q.yaw = q.yaw + sampleTime * ft[3];
+    q.yaw        = q.yaw        + sampleTime * ft[3];
 
     return q;
 }
@@ -156,6 +162,7 @@ Vector4d APPlanner2D::_computeRepulsiveForce(double rx, double ry){
 
 
 int APPlanner2D::_findNavSubGoal(int subOx, int subOy, int subW, int subH, int qgx, int qgy){
+    // Goal inside the submap
     if(qgx > subOx && qgx <= subOx + subW && qgy > subH && qgy <= subOy + subH)
         return qgx * _mapInfo.width + qgy;
 
@@ -171,7 +178,8 @@ int APPlanner2D::_findNavSubGoal(int subOx, int subOy, int subW, int subH, int q
     bool done = false;
 
     while(!done){
-        if(_mapAnalyzer.cellValue(currX, currY) < 50){
+        // If cell is obstacle-free, check distance from goal
+        if(_mapAnalyzer.cellValue(currX, currY) < MAP_TRESHOLD){
             tempDist2 = pow(currX-qgx,2) + pow(currY-qgy,2);
             if(tempDist2 <= minDist2){
                 minDist2 = tempDist2;
@@ -179,6 +187,7 @@ int APPlanner2D::_findNavSubGoal(int subOx, int subOy, int subW, int subH, int q
                 minY = currY;
             }
             else{
+                // Change scanning direction
                 if(clockwise){
                     clockwise = false;
                     currX = subOx;
@@ -191,16 +200,16 @@ int APPlanner2D::_findNavSubGoal(int subOx, int subOy, int subW, int subH, int q
 
         // Retrieve the new cell
         if(clockwise){
-            if(currY == subOy && currX < subOx + subH - 1)  // left side
+            if(currY == subOy && currX < subOx + subH - 1)      // left side
                 ++currX;
             else if(currX == subOx + subH -1 && currY < subOy + subW - 1) // top
                 ++currY;
-            else if(currY == subOy + subW - 1&& currX > subOx) // right
+            else if(currY == subOy + subW - 1&& currX > subOx)  // right
                 --currX;
-            else if(currX == subOx && currY > subOy) // bottom
+            else if(currX == subOx && currY > subOy)            // bottom
                 --currY;
         }else{
-            if(currY == subOy && currX > subOx)  // left side
+            if(currY == subOy && currX > subOx)                 // left side
                 --currX;
             else if(currX == subOx + subH - 1 && currY > subOy) // top
                 --currY;
@@ -218,15 +227,15 @@ int APPlanner2D::_findNavSubGoal(int subOx, int subOy, int subW, int subH, int q
 UAVPose APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
         Trajectory& trajectory, nav_msgs::Path& path){
     // Robot and goal coordinates in map frame
-    int qx = (q.position.x - _mapInfo.origin.position.x) / _mapInfo.resolution;
-    int qy = (q.position.y - _mapInfo.origin.position.y) / _mapInfo.resolution;
+    int qx  = (q.position.x  - _mapInfo.origin.position.x) / _mapInfo.resolution;
+    int qy  = (q.position.y  - _mapInfo.origin.position.y) / _mapInfo.resolution;
     int qgx = (qg.position.x - _mapInfo.origin.position.x) / _mapInfo.resolution;
     int qgy = (qg.position.y - _mapInfo.origin.position.y) / _mapInfo.resolution;
 
     // Compute submap size and robot position in submap
-    int subW, subH;
+    int subW, subH;     // Submap size
     int halfSubW, halfSubH;
-    int subX, subY;
+    int subX, subY;     // UAV coords in the submap
     int subOx, subOy;   // Submap origin in map frame
     int exceeding = 0;  // Number of submap cells outside the actual map borders
 
@@ -300,13 +309,13 @@ UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* 
     ROS_INFO_STREAM("Interpolating navigation function path (" <<
         nfPath->size() << " points)...");
 
-    Vector2d velocity, velocityPrev;
-    int currCell;
-    int cellX, cellY;
-    double nextX, nextY;
-    Vector2d err;
-    bool nextChangeDirection;
-    bool first = true;
+    Vector2d velocity, velocityPrev;    // Current and previous velocity
+    int currCell;                       // Current cell index
+    int cellX, cellY;                   // Current cell coordinates
+    double nextX, nextY;                // Next cell coordinates
+    Vector2d err;                       // Error
+    bool nextChangeDirection;           // 1 if next cell change motion direction
+    bool first = true;                  // 1 if first iteration
 
     geometry_msgs::Accel v;
     v.angular.x = v.angular.y = v.angular.z = v.linear.z = 0;
@@ -341,7 +350,7 @@ UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* 
         // Compute error
         err << nextX - q.position.x, nextY - q.position.y;
 
-        while(err.norm() > 5e-3){
+        while(err.norm() > _navErrTolerance){
 
             // Compute velocity
             velocity = err.normalized() * _navVel;
@@ -473,9 +482,9 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
             break;
 
         // Check if the trajectory is stuck in a local minima
-        if (_obstacleNearby && ft.norm() < 0.1){
+        if (_obstacleNearby && ft.norm() < _navMaxFt){
             Vector2d disp (q.position.x - prevQ.position.x, q.position.y - prevQ.position.y);
-            if(disp.norm() < 1e-2){
+            if(disp.norm() < _navMaxDisp){
                 ROS_INFO("Stuck in a local minimum!");
                 q = _handleLocalMinima(q, qg, trajectory, path);
                 ROS_INFO("Back to normal planning.");

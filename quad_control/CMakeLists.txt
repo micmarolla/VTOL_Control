@@ -140,6 +140,7 @@ include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
   ${GAZEBO_INCLUDE_DIRS}
+  src/include
 )
 
 link_directories(${GAZEBO_LIBRARY_DIRS})

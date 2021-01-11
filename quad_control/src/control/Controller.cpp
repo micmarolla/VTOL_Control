@@ -7,6 +7,7 @@
 #include <tf/LinearMath/Matrix3x3.h>
 #include <tf_conversions/tf_eigen.h>
 
+#include "common.h"
 #include "Utils.h"
 
 using namespace Eigen;
@@ -37,7 +38,8 @@ Controller::Controller() : _nh("~"){
     // Filtering params
     double k1 = _nh.param<double>("k1", 100.0);
     double k2 = _nh.param<double>("k2", 100.0);
-    _filter.initFilterStep(0.001, k1, k2, Vector2d::Zero(), Vector2d::Zero());
+    double filterRate = _nh.param<double>("filterRate", 0.001);
+    _filter.initFilterStep(filterRate, k1, k2, Vector2d::Zero(), Vector2d::Zero());
     _filterSteps = _nh.param<double>("filterSteps", 1);
 
     _epInt = Vector3d::Zero();
@@ -45,15 +47,14 @@ Controller::Controller() : _nh("~"){
 
     _trajStep = 0;
     _remainingSteps = 0;
+
     _trajReady = false;
-
     _odomReady = false;
-    _started = false;
-    _completed = false;
-    _landing = false;
-    _landed = false;
+    _waiting   = true;
+    _tracking  = false;
+    _landing   = false;
 
-    _uT = 0;
+    _uT  = 0;
     _tau = Vector3d::Zero();
 
     _trajSub = _nh.subscribe("/trajectory", 0, &Controller::trajectoryReceived, this);
@@ -106,7 +107,7 @@ void Controller::odomReceived(nav_msgs::OdometryPtr odom){
 
 
 void Controller::_getCurrentTrajPoint(){
-    if(_completed)
+    if(!_tracking)
         return;
 
     // Compute steps to simulate until the next trajectory point
@@ -122,7 +123,8 @@ void Controller::_getCurrentTrajPoint(){
     if(_traj.p.size() <= _trajStep || _traj.v.size() <= _trajStep
             || _traj.a.size() <= _trajStep || _traj.t.size() <= _trajStep){
         ROS_INFO("Trajectory completed!");
-        _completed = true;
+        _tracking = false;
+        _landing = true;
         return;
     }
 }
@@ -213,55 +215,53 @@ void Controller::run(){
     cmd.force.x = cmd.force.y = 0;
 
     while(ros::ok()){
-        if(_trajReady && _odomReady){
-            if(!_started && !_landing && !_completed && !_landed){
-                _started = true;
+        if(_waiting){
+            if(_trajReady && _odomReady){
+                _waiting = false;
+                _tracking = true;
                 ROS_INFO("Starting trajectory");
             }
-
-
-            if(_completed && !_landed && !_landing){
-                _landing = true;
-                ROS_INFO("Landing...");
-            }
-
-            if(_landing && !_landed){
-                _dv.linear.x = _dv.linear.y = _dv.linear.z =
-                    _dv.angular.x = _dv.angular.y = _dv.angular.z = 0;
-                _da.linear.x = _da.linear.y =
-                    _da.angular.x = _da.angular.y = _da.angular.z = 0;
-
-                if(_da.linear.z < 0){
-                    _da.linear.z += 1e-4;
-                    _outerLoop();
-                    _deta[0] = _deta[1] = 0;
-                    _innerLoop();
-                }else{
-                    _uT = 0;
-                    _tau = Vector3d::Zero();
-                    _landing = false;
-                    _landed = true;
-                    ROS_INFO("Landed.");
-                }
-            }
-
-            else if(_started && !_landing && !_landed){
-                _getCurrentTrajPoint();
-                _coreLoop();
-            }
-
-            // Build command msg and publish it
-            cmd.force.z = _uT;
-            cmd.torque.x = _tau[0];
-            cmd.torque.y = _tau[1];
-            cmd.torque.z = _tau[2];
-
-            _pub.publish(cmd);
-
-            pnt.header.stamp = ros::Time::now();
-            pnt.point = _dp.position;
-            _pointPub.publish(pnt);
         }
+
+        else if(_tracking){
+            _getCurrentTrajPoint();
+            _coreLoop();
+        }
+
+        else if(_landing){
+            _dv.linear.x = _dv.linear.y = _dv.linear.z =
+                _dv.angular.x = _dv.angular.y = _dv.angular.z = 0;
+            _da.linear.x = _da.linear.y =
+                _da.angular.x = _da.angular.y = _da.angular.z = 0;
+
+            if(_da.linear.z < 0){
+                _da.linear.z += 1e-4;
+                _outerLoop();
+                _deta[0] = _deta[1] = 0;
+                _innerLoop();
+            }else{
+                _uT = 0;
+                _tau = Vector3d::Zero();
+                _landing = false;
+                _waiting = true;
+                _trajReady = false;
+                _odomReady = false;
+                ROS_INFO("Landed.");
+            }
+        }
+
+        // Build command msg and publish it
+        cmd.force.z = _uT;
+        cmd.torque.x = _tau[0];
+        cmd.torque.y = _tau[1];
+        cmd.torque.z = _tau[2];
+
+        _pub.publish(cmd);
+
+        pnt.header.stamp = ros::Time::now();
+        pnt.point = _dp.position;
+        _pointPub.publish(pnt);
+
 
         r.sleep();
         ros::spinOnce();

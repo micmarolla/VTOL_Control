@@ -1,12 +1,6 @@
 #include "NavigationFunc.h"
 #include <ros/console.h>
-
-/*
- * If map[i] > NAVFUNC_TRESH, it is assumed that there's an obstacle in that
- * cell. Map values goes from 0 to 100: for map retrieved from the octomap,
- * map only contains value 0 or 100, and nothing in between.
- */
-#define NAVFUNC_TRESH  50
+#include "common.h"
 
 using namespace std;
 
@@ -76,7 +70,7 @@ bool NavigationFunc::isObstacle(int index, int eta){
 
 bool NavigationFunc::_isObstacle(int x, int y, int index, int eta){
     if(!_ready)                             return false;
-    if(_map[index] > NAVFUNC_TRESH)         return true;
+    if(_map[index] > MAP_TRESHOLD)          return true;
 
     int i;
     int firstRow = (x + eta <= _h) ? (x + eta) : _h;
@@ -86,7 +80,7 @@ bool NavigationFunc::_isObstacle(int x, int y, int index, int eta){
     for (int r = firstRow; r >= lastRow; --r){
         for(int c = firstCol; c <= lastCol; ++c){
             i = r * this->_w + c;
-            if(_map[i] > NAVFUNC_TRESH)
+            if(_map[i] > MAP_TRESHOLD)
                 return true;
         }
     }
@@ -101,6 +95,7 @@ const int* NavigationFunc::scan(int goalX, int goalY, int eta, int rx, int ry){
     int valCounter = 0, nextValCounter = 0;
     int tempIndex = 0;
     std::queue<int> cells;  // upcoming cells to visit
+    
     this->_robot = rx * _w + ry;
 
     // Set goal value to zero

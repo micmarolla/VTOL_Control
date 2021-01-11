@@ -1,5 +1,6 @@
 #include "PController.h"
 #include <ros/console.h>
+#include "common.h"
 
 using namespace Eigen;
 
@@ -18,7 +19,9 @@ PController::PController() : Controller(){
     _Do = _Ko / _v;
 
     double band = _nh.param<double>("filterBand", 10.0);
-    _estFilter.initFilterStep(0.001, band, 0, Vector6d::Zero(), Vector6d::Zero());
+    double filterRate = _nh.param<double>("estFilterRate", 0.001);
+    _estFilterSteps   = _nh.param<double>("estFilterSteps", 10);
+    _estFilter.initFilterStep(filterRate, band, 0, Vector6d::Zero(), Vector6d::Zero());
 
     _q_prev = Vector6d::Zero();
     _Fe << Vector6d::Zero();
@@ -35,14 +38,14 @@ void PController::_estimateWrench(){
                                             Matrix3d::Zero(),   _C;
     Matrix<double,6,4> Delta; Delta << -_Rb*Vector3d(0,0,1),    Matrix3d::Zero(),
                                         Vector3d::Zero(),       _QT;
-    Vector6d G_sigma; G_sigma << 0, 0, -_m*GRAVITY, 0, 0, 0;
+    Vector6d G_sigma; G_sigma << 0, 0, -_m * GRAVITY, 0, 0, 0;
 
     // Estimation
     Vector6d X = C_sigma.transpose() * sigma_d + Delta*u - G_sigma;
     Vector6d tempFe = _Fe + _c0 * (q-_q_prev) - (_c0*_Fe + _c0*X)/_rate;
 
     // Filter
-    this->_estFilter.filterSteps(tempFe, 10);
+    this->_estFilter.filterSteps(tempFe, _estFilterSteps);
     _Fe << _estFilter.lastFirst();
 
     _q_prev = q;

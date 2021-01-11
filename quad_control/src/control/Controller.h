@@ -10,8 +10,6 @@
 #include "quad_control/Trajectory.h"
 #include "LP2Filter.h"
 
-#define GRAVITY 9.81
-
 using namespace Eigen;
 using namespace quad_control;
 
@@ -64,8 +62,6 @@ protected:
     Vector3d _epInt, _eoInt;                // Integral
     Matrix3d _Kpi, _Kei;                    // Integral gains
 
-    bool _landing;
-
 
     /*
      * Compute Q matrix. It is stored in the class members, as well as
@@ -113,8 +109,7 @@ private:
     int _trajStep;                          // Current trajectory step
     int _remainingSteps;                    // ..for the current traj point
 
-    bool _started, _completed;              // Trajectory status
-    bool _landed;
+    bool _waiting, _tracking, _landing;     // Trajectory status
 
     UAVPose _dp;                            // Desired pos
     geometry_msgs::Accel _dv;               // Desired linear velocity
@@ -126,7 +121,7 @@ private:
     Vector3d _omega;                        // Current angular velocity
 
     LP2Filter<Vector2d> _filter;            // Low-pass 2nd order filter
-    int _filterSteps;               // Number of filtering steps for each value
+    int _filterSteps;           // Number of filtering steps for each new value
 
 
     /*

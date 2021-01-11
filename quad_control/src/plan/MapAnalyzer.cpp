@@ -2,13 +2,7 @@
 
 #include <cmath>
 #include <ros/console.h>
-
-/*
- * If map[i] > MAPANALYZER_TRESH, it is assumed that there's an obstacle in that
- * cell. Map values goes from 0 to 100: for map retrieved from the octomap,
- * map only contains value 0 or 100, and nothing in between.
- */
-#define MAPANALYZER_TRESH    50
+#include "common.h"
 
 MapAnalyzer::MapAnalyzer(){
     _map = 0;
@@ -39,13 +33,13 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
         return;
 
     this->_visited[index] = true;
-    if(this->_map[index] < MAPANALYZER_TRESH)
+    if(this->_map[index] < MAP_TRESHOLD)
         return;
 
     // Left node
     if(root->y > 0){
         int k = index - 1;
-        if (!this->_visited[k] && this->_map[k] > MAPANALYZER_TRESH){
+        if (!this->_visited[k] && this->_map[k] > MAP_TRESHOLD){
             root->left = new Chunk;
             root->left->x = root->x;
             root->left->y = root->y-1;
@@ -56,7 +50,7 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
     // Right node
     if(root->y < this->_w - 1){
         int k = index + 1;
-        if (!this->_visited[k] && this->_map[k] > MAPANALYZER_TRESH){
+        if (!this->_visited[k] && this->_map[k] > MAP_TRESHOLD){
             root->right = new Chunk;
             root->right->x = root->x;
             root->right->y = root->y+1;
@@ -67,7 +61,7 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
     // Bottom node
     if(root->x > 0){
         int k = index - this->_w;
-        if (!this->_visited[k] && this->_map[k] > MAPANALYZER_TRESH){
+        if (!this->_visited[k] && this->_map[k] > MAP_TRESHOLD){
             root->down = new Chunk;
             root->down->x = root->x-1;
             root->down->y = root->y;
@@ -121,7 +115,7 @@ void MapAnalyzer::scan(){
         for (int c=0; c < _w; ++c){
             int i = r * _w + c;
 
-            if (this->_map[i] < MAPANALYZER_TRESH || this->_visited[i]){
+            if (this->_map[i] < MAP_TRESHOLD || this->_visited[i]){
                 this->_visited[i] = true;
                 continue;
             }
