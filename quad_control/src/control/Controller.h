@@ -64,6 +64,8 @@ protected:
     Vector3d _epInt, _eoInt;                // Integral
     Matrix3d _Kpi, _Kei;                    // Integral gains
 
+    bool _landing;
+
 
     /*
      * Compute Q matrix. It is stored in the class members, as well as
@@ -112,6 +114,7 @@ private:
     int _remainingSteps;                    // ..for the current traj point
 
     bool _started, _completed;              // Trajectory status
+    bool _landed;
 
     UAVPose _dp;                            // Desired pos
     geometry_msgs::Accel _dv;               // Desired linear velocity

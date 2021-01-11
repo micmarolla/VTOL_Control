@@ -53,6 +53,7 @@ void PController::_computeMu(){
     Vector3d mud = Vector3d(_da.linear.x, _da.linear.y, _da.linear.z) -
         (_Kp * _e_p.head<3>() + _Kd * _e_p.tail<3>() +
          _Kpi * _epInt) / _m;
+
     _mud = mud - _Fe.head<3>() / _m;
 }
 

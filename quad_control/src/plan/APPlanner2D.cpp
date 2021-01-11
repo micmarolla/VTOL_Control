@@ -268,20 +268,20 @@ UAVPose APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
     }
 
     // Construct submap and navigation function
-    ROS_INFO_STREAM("APPlanner2D: Generating submap...");
+    ROS_INFO_STREAM("Generating submap...");
     int8_t* submap = _mapAnalyzer.generateSubmap(qx, qy, subW, subH);
     NavigationFunc nf;
     nf.setMap(submap, subW, subH);
 
     // Find the submap point nearest to the actual goal
-    ROS_INFO_STREAM("APPlanner2D: Finding subgoal...");
+    ROS_INFO_STREAM("Finding subgoal...");
     int subGoalX, subGoalY;
     int subGoal = _findNavSubGoal(subOx, subOy, subW, subH, qgx, qgy);
     subGoalX = subGoal / subW;
     subGoalY = subGoal % subW;
 
     // Build navigation function (lazy build, i.e., q is specified)
-    ROS_INFO_STREAM("APPlanner2D: Building navigation function...");
+    ROS_INFO_STREAM("Building navigation function...");
 
     const int* nav = nf.scan(subGoalX, subGoalY, _navEta/_mapInfo.resolution, subX, subY);
     std::queue<int>* nfPath = nf.getPath();
@@ -297,7 +297,7 @@ UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* 
     if(nfPath->empty())
         return q;
 
-    ROS_INFO_STREAM("APPlanner2D: Interpolating navigation function path (" <<
+    ROS_INFO_STREAM("Interpolating navigation function path (" <<
         nfPath->size() << " points)...");
 
     Vector2d velocity, velocityPrev;
@@ -476,9 +476,9 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
         if (_obstacleNearby && ft.norm() < 0.1){
             Vector2d disp (q.position.x - prevQ.position.x, q.position.y - prevQ.position.y);
             if(disp.norm() < 1e-2){
-                ROS_INFO("APPlanner2D: Stuck in a local minimum!");
+                ROS_INFO("Stuck in a local minimum!");
                 q = _handleLocalMinima(q, qg, trajectory, path);
-                ROS_INFO("APPlanner2D: Back to normal planning.");
+                ROS_INFO("Back to normal planning.");
             }
         }
         prevQ = q;
@@ -500,11 +500,11 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
 
 
 void APPlanner2D::plan(PlanRequestPtr req){
-    ROS_INFO("APPlanner_2D: path planning requested. Planning...");
+    ROS_INFO("Path planning requested. Planning...");
 
     // Check number of points in the trajectory
     if(req->q.size() <= 1){
-        ROS_ERROR("APPlanner2D: Number of points in PlanRequest must be at least 2.");
+        ROS_ERROR("Number of points in PlanRequest must be at least 2.");
         return;
     }
 
@@ -518,9 +518,9 @@ void APPlanner2D::plan(PlanRequestPtr req){
     for(auto q : req->q){
         fr_g = _computeRepulsiveForce(q.position.x, q.position.y);
         if(fr_g[0] != 0 || fr_g[1] != 0){
-            ROS_ERROR_STREAM("APPlanner2D: Repulsive forces in configurations " <<
+            ROS_ERROR_STREAM("Repulsive forces in configurations " <<
                 currPoint << " are not null. Planning is not possible");
-            ROS_ERROR_STREAM("APPlanner2D: Distance from the nearest obstacle: " << sqrt(_currMinDist2));
+            ROS_ERROR_STREAM("Distance from the nearest obstacle: " << sqrt(_currMinDist2));
             return;
         }
         ++currPoint;

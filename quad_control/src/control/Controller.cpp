@@ -50,6 +50,8 @@ Controller::Controller() : _nh("~"){
     _odomReady = false;
     _started = false;
     _completed = false;
+    _landing = false;
+    _landed = false;
 
     _uT = 0;
     _tau = Vector3d::Zero();
@@ -212,13 +214,41 @@ void Controller::run(){
 
     while(ros::ok()){
         if(_trajReady && _odomReady){
-            if(!_started){
+            if(!_started && !_landing && !_completed && !_landed){
                 _started = true;
                 ROS_INFO("Starting trajectory");
             }
 
-            _getCurrentTrajPoint();
-            _coreLoop();
+
+            if(_completed && !_landed && !_landing){
+                _landing = true;
+                ROS_INFO("Landing...");
+            }
+
+            if(_landing && !_landed){
+                _dv.linear.x = _dv.linear.y = _dv.linear.z =
+                    _dv.angular.x = _dv.angular.y = _dv.angular.z = 0;
+                _da.linear.x = _da.linear.y =
+                    _da.angular.x = _da.angular.y = _da.angular.z = 0;
+
+                if(_da.linear.z < 0){
+                    _da.linear.z += 1e-4;
+                    _outerLoop();
+                    _deta[0] = _deta[1] = 0;
+                    _innerLoop();
+                }else{
+                    _uT = 0;
+                    _tau = Vector3d::Zero();
+                    _landing = false;
+                    _landed = true;
+                    ROS_INFO("Landed.");
+                }
+            }
+
+            else if(_started && !_landing && !_landed){
+                _getCurrentTrajPoint();
+                _coreLoop();
+            }
 
             // Build command msg and publish it
             cmd.force.z = _uT;

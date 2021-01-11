@@ -42,12 +42,12 @@ int main(int argc, char **argv){
     }
 
     quad_control::UAVPose q;
-    q.yaw = 0;
 
     for(int i=0; i<n; ++i){
         q.position.x = nh.param<double>("x"+std::to_string(i), 0.0);
         q.position.y = nh.param<double>("y"+std::to_string(i), 0.0);
         q.position.z = nh.param<double>("z"+std::to_string(i), 0.0);
+        q.yaw        = nh.param<double>("yaw"+std::to_string(i), 0.0);
         if(i > 0){
             double t = nh.param<double>("steadyTime"+std::to_string(i), 1.0);
             req.steadyTime.push_back(t);
