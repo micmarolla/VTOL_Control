@@ -16,8 +16,8 @@
     <arg name="verbose" default="false"/>
     <arg name="rvizconfig" default="$(find quad_control)/planning.rviz" />
 
-    <arg name="spawn_x" default="-6"/>
-    <arg name="spawn_y" default="-6"/>
+    <arg name="spawn_x" default="0"/>
+    <arg name="spawn_y" default="-9"/>
 
     <env name="GAZEBO_MODEL_PATH" value="${GAZEBO_MODEL_PATH}:$(find rotors_gazebo)/models"/>
     <env name="GAZEBO_RESOURCE_PATH" value="${GAZEBO_RESOURCE_PATH}:$(find rotors_gazebo)/models"/>
@@ -35,7 +35,7 @@
             <arg name="mav_name" value="$(arg mav_name)" />
             <arg name="model" value="$(find rotors_description)/urdf/mav_generic_odometry_sensor.gazebo" />
             <arg name="x" value="$(arg spawn_x)"/>
-            <arg name="y" value="$(arg spawn_x)"/>
+            <arg name="y" value="$(arg spawn_y)"/>
             <arg name="enable_logging" value="$(arg enable_logging)" />
             <arg name="enable_ground_truth" value="$(arg enable_ground_truth)" />
             <arg name="log_file" value="$(arg log_file)"/>
@@ -55,7 +55,7 @@
         <param name="frame_id" type="string" value="world"/>
     </node>
 
-    <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="log">
+    <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="screen">
         <param name="rate"          type="double"   value="10"/>
         <param name="showPath"        type="bool"   value="true"/>
         <param name="showPathPoints"  type="bool"   value="true"/>
@@ -74,14 +74,14 @@
     <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen">
         <!-- Trajectory -->
         <param name="n"             type="int"      value="3"/>
-        <param name="x0"            type="double"   value="-6.0"/>
-        <param name="y0"            type="double"   value="-6.0"/>
+        <param name="x0"            type="double"   value="-9.0"/>
+        <param name="y0"            type="double"   value="0.0"/>
         <param name="z0"            type="double"   value="0.0"/>
-        <param name="x1"            type="double"   value="-6.0"/>
-        <param name="y1"            type="double"   value="-6.0"/>
+        <param name="x1"            type="double"   value="-9.0"/>
+        <param name="y1"            type="double"   value="0.0"/>
         <param name="z1"            type="double"   value="-1.0"/>
         <param name="x2"            type="double"   value="6.0"/>
-        <param name="y2"            type="double"   value="6.0"/>
+        <param name="y2"            type="double"   value="0.0"/>
         <param name="z2"            type="double"   value="-1.0"/>
     </node>
 

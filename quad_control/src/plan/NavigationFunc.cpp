@@ -73,10 +73,11 @@ bool NavigationFunc::_isObstacle(int x, int y, int index, int eta){
     if(_map[index] > MAP_THRESHOLD)         return true;
 
     int i;
-    int firstRow = (x + eta <= _h) ? (x + eta) : _h;
-    int lastRow  = (x - eta >= 0)  ? (x - eta) : 0;
-    int firstCol = (y - eta >= 0)  ? (y - eta) : 0;
-    int lastCol  = (y + eta <= _w) ? (y + eta) : _w;
+    int firstRow = (x + eta < _h) ? (x + eta) : _h - 1;
+    int lastRow  = (x - eta >= 0) ? (x - eta) : 0;
+    int firstCol = (y - eta >= 0) ? (y - eta) : 0;
+    int lastCol  = (y + eta < _w) ? (y + eta) : _w - 1;
+
     for (int r = firstRow; r >= lastRow; --r){
         for(int c = firstCol; c <= lastCol; ++c){
             i = r * this->_w + c;
@@ -112,7 +113,7 @@ const int* NavigationFunc::scan(int goalX, int goalY, int eta, int rx, int ry){
     cells.push(index);
 
     if(_robot == index)
-        return 0;
+        return this->_nav;
 
     int count = 0;
     while(true){
