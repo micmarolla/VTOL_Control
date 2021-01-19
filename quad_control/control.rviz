@@ -8,8 +8,7 @@ Panels:
         - /Axes1
         - /Axes2
         - /RobotModel1
-        - /Path1
-        - /PointStamped1
+        - /PoseArray1
       Splitter Ratio: 0.5147058963775635
     Tree Height: 755
   - Class: rviz/Selection
@@ -131,6 +130,16 @@ Visualization Manager:
       Update Interval: 0
       Value: true
       Visual Enabled: true
+    - Alpha: 0.699999988079071
+      Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Map
+      Topic: /map
+      Unreliable: false
+      Use Timestamp: false
+      Value: true
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
@@ -151,7 +160,7 @@ Visualization Manager:
       Radius: 0.029999999329447746
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
-      Topic: /plannedPath
+      Topic: /debugPath
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -164,15 +173,21 @@ Visualization Manager:
       Topic: /trajectoryPoint
       Unreliable: false
       Value: true
-    - Alpha: 0.699999988079071
-      Class: rviz/Map
-      Color Scheme: map
-      Draw Behind: false
+    - Alpha: 1
+      Arrow Length: 0.30000001192092896
+      Axes Length: 0.20000000298023224
+      Axes Radius: 0.009999999776482582
+      Class: rviz/PoseArray
+      Color: 255; 25; 0
       Enabled: true
-      Name: Map
-      Topic: /map
+      Head Length: 0.07000000029802322
+      Head Radius: 0.029999999329447746
+      Name: PoseArray
+      Shaft Length: 0.23000000417232513
+      Shaft Radius: 0.009999999776482582
+      Shape: Axes
+      Topic: /debugPathPoints
       Unreliable: false
-      Use Timestamp: false
       Value: true
   Enabled: true
   Global Options:

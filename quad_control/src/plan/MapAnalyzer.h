@@ -78,12 +78,11 @@ public:
     vector<Chunk*> getObjAtMinDist(int rx, int ry);
 
     /*
-     * Generate a submap around the cell (rx, ry), with width and height as
-     * specified.
+     * Generate a submap from the specified origin and of the specified size.
      * N.B.: no checks on dimensions are carried out. You should ensure that
      * the submap is correctly contained inside the map.
      */
-    int8_t* generateSubmap(int rx, int ry, int w, int h);
+    int8_t* generateSubmap(int x0, int y0, int w, int h);
 
     /*
      * Return the value of the cell (x,y) of the map.

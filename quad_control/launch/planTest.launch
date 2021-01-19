@@ -3,18 +3,18 @@
     <param name="/use_sim_time" value="true"/>
 
     <arg name="mav_name" default="hummingbird"/>
-    <arg name="world_name" default="arena"/>
+    <arg name="world_name" default="arena1"/>
     <arg name="enable_logging" default="false" />
     <arg name="enable_ground_truth" default="true" />
     <arg name="log_file" default="$(arg mav_name)" />
     <arg name="debug" default="false"/>
     <arg name="gui" default="true"/>
-    <arg name="paused" default="false"/>
+    <arg name="paused" default="true"/>
 
     <!-- The following line causes gzmsg and gzerr messages to be printed to the console
         (even when Gazebo is started through roslaunch) -->
     <arg name="verbose" default="false"/>
-    <arg name="rvizconfig" default="$(find quad_control)/showPath.rviz" />
+    <arg name="rvizconfig" default="$(find quad_control)/planning.rviz" />
 
     <arg name="spawn_x" default="-6"/>
     <arg name="spawn_y" default="-6"/>
@@ -51,17 +51,19 @@
     </group>
 
 
-    <node name="map_server" pkg="map_server" type="map_server" args="$(find quad_control)/worlds/maps/arena.yaml" output="screen">
+    <node name="map_server" pkg="map_server" type="map_server" args="$(find quad_control)/worlds/maps/$(arg world_name).yaml" output="screen">
         <param name="frame_id" type="string" value="world"/>
     </node>
 
-    <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="screen">
+    <node pkg="quad_control" type="APPlanner2D" name="APPlanner2D" output="log">
         <param name="rate"          type="double"   value="10"/>
-        <param name="debugPath"     type="bool"     value="true"/>
+        <param name="showPath"        type="bool"   value="true"/>
+        <param name="showPathPoints"  type="bool"   value="true"/>
         <param name="sampleTimeMin" type="double"   value="0.005"/>
         <param name="sampleTimeMax" type="double"   value="0.01"/>
         <param name="etaWall"       type="double"   value="1.2"/>
         <param name="etaObst"       type="double"   value="1.75"/>
+        <param name="p_eps"         type="double"   value="0.01"/>
         <param name="ka"            type="double"   value="1.0"/>
         <param name="kr"            type="double"   value="5.0"/>
         <param name="navFuncRadius" type="double"   value="3.0"/>
@@ -78,8 +80,8 @@
         <param name="x1"            type="double"   value="-6.0"/>
         <param name="y1"            type="double"   value="-6.0"/>
         <param name="z1"            type="double"   value="-1.0"/>
-        <param name="x2"            type="double"   value="0.5"/>
-        <param name="y2"            type="double"   value="-6.0"/>
+        <param name="x2"            type="double"   value="6.0"/>
+        <param name="y2"            type="double"   value="6.0"/>
         <param name="z2"            type="double"   value="-1.0"/>
     </node>
 

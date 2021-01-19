@@ -24,9 +24,9 @@ Controller::Controller() : _nh("~"){
 
     // Proportional, derivative, integral gains
     double kp = _nh.param<double>("kp", 10.0);
-    double kpv = _nh.param<double>("kpv", 10.0);
-    double ke = _nh.param<double>("ke", 1.0);
-    double kev = _nh.param<double>("kev", 1.0);
+    double kpv = _nh.param<double>("kpd", 10.0);
+    double ke = _nh.param<double>("ko", 1.0);
+    double kev = _nh.param<double>("kod", 1.0);
     _Kp << kp*Matrix3d::Identity(), kpv*Matrix3d::Identity();
     _Ke << ke*Matrix3d::Identity(), kev*Matrix3d::Identity();
 
@@ -38,9 +38,9 @@ Controller::Controller() : _nh("~"){
     // Filtering params
     double k1 = _nh.param<double>("k1", 100.0);
     double k2 = _nh.param<double>("k2", 100.0);
-    double filterRate = _nh.param<double>("filterRate", 0.001);
-    _filter.initFilterStep(filterRate, k1, k2, Vector2d::Zero(), Vector2d::Zero());
-    _filterSteps = _nh.param<double>("filterSteps", 1);
+    double filterRate = _nh.param<double>("filterRate", 100.0);
+    _filter.initFilterStep(1/filterRate, k1, k2, Vector2d::Zero(), Vector2d::Zero());
+    _filterSteps = _nh.param<int>("filterSteps", 1);
 
     _epInt = Vector3d::Zero();
     _eoInt = Vector3d::Zero();

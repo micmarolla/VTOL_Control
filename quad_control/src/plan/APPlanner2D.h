@@ -4,6 +4,7 @@
 #include <queue>
 
 #include <ros/ros.h>
+#include <geometry_msgs/PoseArray.h>
 #include <nav_msgs/Path.h>
 #include <nav_msgs/MapMetaData.h>
 #include <Eigen/Dense>
@@ -145,7 +146,7 @@ private:
 private:
     ros::NodeHandle _nh;
     ros::Subscriber _sub;
-    ros::Publisher _pathPub, _pub;
+    ros::Publisher _pathPub, _pathPointsPub, _pub;
 
     double _rate;
 
@@ -162,7 +163,8 @@ private:
     double _goalDistMin, _goalDistAvg;  // Distance from goal limits that activate displacement capping
     double _maxVertAcc; // Maximum vertical acceleration
 
-    bool _debugPath;    // If true, publish nav_msgs::Path debug msg
+    bool _showPath;     // If true, publish nav_msgs::Path debug msg
+    bool _showPathPoints;   // If true, publish path segments' extremes
     bool _done;         // True if trajectory has been planned and published
 
     bool _obstacleNearby;
@@ -175,6 +177,7 @@ private:
     double _navMaxFt, _navMaxDisp;  // Max force and displacement to recognize a local minimum
 
     nav_msgs::Path _path;
+    geometry_msgs::PoseArray _pathPoints;
 
     nav_msgs::MapMetaData _mapInfo;
     MapAnalyzer _mapAnalyzer;

@@ -5,6 +5,7 @@
 #include <queue>
 
 #include <geometry_msgs/Accel.h>
+#include <geometry_msgs/Pose.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
 
@@ -15,7 +16,7 @@ using namespace Eigen;
 
 APPlanner2D::APPlanner2D() : _nh("~"){
     // Retrieve params
-    _rate            = _nh.param<double>("rate",            1.0);
+    _rate            = _nh.param<double>("rate",            100.0);
     _ka              = _nh.param<double>("ka",              1.0);
     _kr              = _nh.param<double>("kr",              1.0);
     _qdiffMin        = _nh.param<double>("qDiffMin",        0.0);
@@ -23,14 +24,15 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _gamma           = _nh.param<double>("gamma",           2.0);
     _p_eps           = _nh.param<double>("p_eps",           0.001);
     _o_eps           = _nh.param<double>("o_eps",           0.001);
-    _debugPath       = _nh.param<bool>  ("debugPath",       true);
+    _showPath        = _nh.param<bool>  ("showPath",        false);
+    _showPathPoints  = _nh.param<bool>  ("showPathPoints",  false);
     _maxVertAcc      = _nh.param<double>("maxVerticalAcc",  5.0);
     _navFuncRadius   = _nh.param<double>("navFuncRadius",   3.0);
     _navVel          = _nh.param<double>("navVelocity",     1.0);
     _goalDistAvg     = _nh.param<double>("goalDistAvg",     0.1);
     _goalDistMin     = _nh.param<double>("goalDistMin",     0.05);
     _navErrTolerance = _nh.param<double>("navErrTolerance", 0.005);
-    _navMaxFt        = _nh.param<double>("navMaxFt",        0.1);
+    _navMaxFt        = _nh.param<double>("navMaxFt",        0.25);
     _navMaxDisp      = _nh.param<double>("navMaxDisp",      0.01);
 
 
@@ -63,8 +65,10 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _sub = _nh.subscribe("/planRequest", 0, &APPlanner2D::plan, this);
     _pub = _nh.advertise<Trajectory>("/trajectory", 0, true);
 
-    if(_debugPath)
-        _pathPub = _nh.advertise<nav_msgs::Path>("/plannedPath", 0, false);
+    if(_showPath)
+        _pathPub = _nh.advertise<nav_msgs::Path>("/debugPath", 0, false);
+    if(_showPathPoints)
+        _pathPointsPub = _nh.advertise<geometry_msgs::PoseArray>("/debugPathPoints", 0, false);
 }
 
 
@@ -179,7 +183,7 @@ int APPlanner2D::_findNavSubGoal(int subOx, int subOy, int subW, int subH, int q
 
     while(!done){
         // If cell is obstacle-free, check distance from goal
-        if(_mapAnalyzer.cellValue(currX, currY) < MAP_TRESHOLD){
+        if(_mapAnalyzer.cellValue(currX, currY) < MAP_THRESHOLD){
             tempDist2 = pow(currX-qgx,2) + pow(currY-qgy,2);
             if(tempDist2 <= minDist2){
                 minDist2 = tempDist2;
@@ -277,20 +281,20 @@ UAVPose APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
     }
 
     // Construct submap and navigation function
-    ROS_INFO_STREAM("Generating submap...");
-    int8_t* submap = _mapAnalyzer.generateSubmap(qx, qy, subW, subH);
+    ROS_INFO("Generating submap...");
+    int8_t* submap = _mapAnalyzer.generateSubmap(subOx, subOy, subW, subH);
     NavigationFunc nf;
     nf.setMap(submap, subW, subH);
 
     // Find the submap point nearest to the actual goal
-    ROS_INFO_STREAM("Finding subgoal...");
+    ROS_INFO("Finding subgoal...");
     int subGoalX, subGoalY;
     int subGoal = _findNavSubGoal(subOx, subOy, subW, subH, qgx, qgy);
     subGoalX = subGoal / subW;
     subGoalY = subGoal % subW;
 
     // Build navigation function (lazy build, i.e., q is specified)
-    ROS_INFO_STREAM("Building navigation function...");
+    ROS_INFO("Building navigation function...");
 
     const int* nav = nf.scan(subGoalX, subGoalY, _navEta/_mapInfo.resolution, subX, subY);
     std::queue<int>* nfPath = nf.getPath();
@@ -330,9 +334,9 @@ UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* 
         currCell = nfPath->front();
         nfPath->pop();
         cellX = currCell / subW + subOx;
-        nextX = cellX * _mapInfo.resolution + _mapInfo.origin.position.x;
+        nextX = (cellX+0.5) * _mapInfo.resolution + _mapInfo.origin.position.x;
         cellY = currCell % subW + subOy;
-        nextY = cellY * _mapInfo.resolution + _mapInfo.origin.position.y;
+        nextY = (cellY+0.5) * _mapInfo.resolution + _mapInfo.origin.position.y;
 
         // The next cell will change direction?
         nextChangeDirection = true;
@@ -364,7 +368,7 @@ UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* 
             q.position.y += velocity[1] * _navSample;
 
             // Append point to trajectory
-            trajectory.t.push_back(_sampleAvg);
+            trajectory.t.push_back(_navSample);
             trajectory.p.push_back(q);
 
             // Build velocity
@@ -383,7 +387,7 @@ UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* 
             velocityPrev = velocity;
 
             // Publish debug path
-            if(_debugPath){
+            if(_showPath){
 
                 pose.header.stamp = ros::Time::now();
                 pose.header.frame_id = "worldNED";
@@ -465,7 +469,7 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
         trajectory.p.push_back(q);
 
         // Debug path
-        if(_debugPath){
+        if(_showPath){
             geometry_msgs::PoseStamped pose;
             pose.header.stamp = ros::Time::now();
             pose.header.frame_id = "worldNED";
@@ -482,9 +486,9 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
             break;
 
         // Check if the trajectory is stuck in a local minima
-        if (_obstacleNearby && ft.norm() < _navMaxFt){
+        if (_obstacleNearby){
             Vector2d disp (q.position.x - prevQ.position.x, q.position.y - prevQ.position.y);
-            if(disp.norm() < _navMaxDisp){
+            if(disp.norm() < _navMaxDisp && ft.norm() < _navMaxFt){
                 ROS_INFO("Stuck in a local minimum!");
                 q = _handleLocalMinima(q, qg, trajectory, path);
                 ROS_INFO("Back to normal planning.");
@@ -536,16 +540,33 @@ void APPlanner2D::plan(PlanRequestPtr req){
     }
 
     // Wait for transform between world and worldNED
-    if(_debugPath){
+    if(_showPath || _showPathPoints){
         tf::TransformListener _tf;
         try{
             _tf.waitForTransform("/world", "/worldNED", ros::Time::now(),
                 ros::Duration(1.0));
         } catch(tf::TransformException &ex){
             ROS_ERROR("%s", ex.what());
-            _debugPath = false;
+            _showPath = false;
+            _showPathPoints = false;
         }
     }
+
+    // Show points
+    if(_showPathPoints){
+        geometry_msgs::PoseArray pa;
+        pa.header.frame_id = "worldNED";
+        geometry_msgs::Pose p;
+
+        for(auto point : req->q){
+            p.position = point.position;
+            p.orientation = tf::createQuaternionMsgFromYaw(point.yaw);
+            pa.poses.push_back(p);
+        }
+
+        this->_pathPointsPub.publish(pa);
+    }
+
 
     // Build path msg
     Trajectory trajectory;
@@ -565,7 +586,7 @@ void APPlanner2D::plan(PlanRequestPtr req){
     }
 
     // Publish trajectory
-    if(_debugPath)
+    if(_showPath)
         this->_pathPub.publish(_path);
     this->_pub.publish(trajectory);
 
@@ -578,7 +599,7 @@ void APPlanner2D::plan(PlanRequestPtr req){
 void APPlanner2D::run(){
     ros::Rate rate(_rate);
     while(ros::ok()){
-        if(_done && _debugPath)
+        if(_done && _showPath)
             _pathPub.publish(_path);
         rate.sleep();
         ros::spinOnce();

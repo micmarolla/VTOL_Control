@@ -102,6 +102,7 @@ void LP2Filter<T>::filterStep(T signal){
 
 template <typename T>
 void LP2Filter<T>::filterSteps(T signal, int steps){
-    for (int i=0; i<steps; ++i)
-        this->filterStep(signal);
+    if(steps > 0)
+        for (int i=0; i<steps; ++i)
+            this->filterStep(signal);
 }

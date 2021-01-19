@@ -19,9 +19,9 @@ PController::PController() : Controller(){
     _Do = _Ko / _v;
 
     double band = _nh.param<double>("filterBand", 10.0);
-    double filterRate = _nh.param<double>("estFilterRate", 0.001);
-    _estFilterSteps   = _nh.param<double>("estFilterSteps", 10);
-    _estFilter.initFilterStep(filterRate, band, 0, Vector6d::Zero(), Vector6d::Zero());
+    double filterRate = _nh.param<double>("estFilterRate", 100.0);
+    _estFilterSteps   = _nh.param<int>("estFilterSteps", 10);
+    _estFilter.initFilterStep(1/filterRate, band, 0, Vector6d::Zero(), Vector6d::Zero());
 
     _q_prev = Vector6d::Zero();
     _Fe << Vector6d::Zero();

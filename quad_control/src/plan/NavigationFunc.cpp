@@ -70,7 +70,7 @@ bool NavigationFunc::isObstacle(int index, int eta){
 
 bool NavigationFunc::_isObstacle(int x, int y, int index, int eta){
     if(!_ready)                             return false;
-    if(_map[index] > MAP_TRESHOLD)          return true;
+    if(_map[index] > MAP_THRESHOLD)         return true;
 
     int i;
     int firstRow = (x + eta <= _h) ? (x + eta) : _h;
@@ -80,7 +80,7 @@ bool NavigationFunc::_isObstacle(int x, int y, int index, int eta){
     for (int r = firstRow; r >= lastRow; --r){
         for(int c = firstCol; c <= lastCol; ++c){
             i = r * this->_w + c;
-            if(_map[i] > MAP_TRESHOLD)
+            if(_map[i] > MAP_THRESHOLD)
                 return true;
         }
     }
@@ -95,8 +95,15 @@ const int* NavigationFunc::scan(int goalX, int goalY, int eta, int rx, int ry){
     int valCounter = 0, nextValCounter = 0;
     int tempIndex = 0;
     std::queue<int> cells;  // upcoming cells to visit
-    
+
+    // Clear the path
+    std::queue<int>().swap(_path);
+
     this->_robot = rx * _w + ry;
+
+    // Clear nav
+    for(int i=0; i < _w*_h; ++i)
+        _nav[i] = -1;
 
     // Set goal value to zero
     index = x * _w + y;
@@ -107,12 +114,14 @@ const int* NavigationFunc::scan(int goalX, int goalY, int eta, int rx, int ry){
     if(_robot == index)
         return 0;
 
+    int count = 0;
     while(true){
-        // This should never happen!
+        // Cannot scan other cells
         if(cells.empty()){
-            ROS_FATAL("Error in scanning navigation function. Maybe goal is outside the map?");
-            return 0;
+            ROS_ERROR("Unable to build the navigation function.");
+            break;
         }
+
         index = cells.front();
         cells.pop();
         y = index % _w;

@@ -33,13 +33,13 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
         return;
 
     this->_visited[index] = true;
-    if(this->_map[index] < MAP_TRESHOLD)
+    if(this->_map[index] < MAP_THRESHOLD)
         return;
 
     // Left node
     if(root->y > 0){
         int k = index - 1;
-        if (!this->_visited[k] && this->_map[k] > MAP_TRESHOLD){
+        if (!this->_visited[k] && this->_map[k] > MAP_THRESHOLD){
             root->left = new Chunk;
             root->left->x = root->x;
             root->left->y = root->y-1;
@@ -50,7 +50,7 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
     // Right node
     if(root->y < this->_w - 1){
         int k = index + 1;
-        if (!this->_visited[k] && this->_map[k] > MAP_TRESHOLD){
+        if (!this->_visited[k] && this->_map[k] > MAP_THRESHOLD){
             root->right = new Chunk;
             root->right->x = root->x;
             root->right->y = root->y+1;
@@ -61,7 +61,7 @@ void MapAnalyzer::_fillTree(Chunk *root, int index){
     // Bottom node
     if(root->x > 0){
         int k = index - this->_w;
-        if (!this->_visited[k] && this->_map[k] > MAP_TRESHOLD){
+        if (!this->_visited[k] && this->_map[k] > MAP_THRESHOLD){
             root->down = new Chunk;
             root->down->x = root->x-1;
             root->down->y = root->y;
@@ -115,7 +115,7 @@ void MapAnalyzer::scan(){
         for (int c=0; c < _w; ++c){
             int i = r * _w + c;
 
-            if (this->_map[i] < MAP_TRESHOLD || this->_visited[i]){
+            if (this->_map[i] < MAP_THRESHOLD || this->_visited[i]){
                 this->_visited[i] = true;
                 continue;
             }
@@ -183,24 +183,15 @@ vector<Chunk*> MapAnalyzer::getObjAtMinDist(int rx, int ry){
     return mins;
 }
 
-int8_t* MapAnalyzer::generateSubmap(int rx, int ry, int w, int h){
+int8_t* MapAnalyzer::generateSubmap(int x0, int y0, int w, int h){
     int8_t* submap = new int8_t[w*h];
+    int subIndex = 0;
 
-    int subIndex = 0, mapIndex = 0;
-    int mapX = (rx - ceil((w-1)/2));
-    int mapY = (ry - ceil((h-1)/2));
-
-    while (subIndex < w*h){
-        mapIndex =  mapX * this->_w + mapY;
-        submap[subIndex++] = _map[mapIndex];
-
-        if(mapY < w - 1)
-            ++mapY;
-        else{
-            ++mapX;
-            mapY = 0;
+    for(int x=x0; x < x0+w; ++x){
+        for(int y=y0; y < y0+h; ++y){
+            int index = x * this->_w + y;
+            submap[subIndex++] = _map[index];
         }
-
     }
 
     return submap;
