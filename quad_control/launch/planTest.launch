@@ -71,9 +71,8 @@
         <param name="navVelocity"   type="double"   value="0.5"/>
     </node>
 
-    <node pkg="quad_control" type="plannerTest" name="plannerTest" output="screen">
-        <!-- Trajectory -->
-        <param name="n"             type="int"      value="3"/>
+    <node pkg="quad_control" type="Manager" name="Manager" output="screen">
+        <param name="planTrajectory"  type="bool"   value="true"/>
         <param name="x0"            type="double"   value="-9.0"/>
         <param name="y0"            type="double"   value="0.0"/>
         <param name="z0"            type="double"   value="0.0"/>

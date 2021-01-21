@@ -9,6 +9,7 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
 
+#include "quad_control/TrajectoryPoint.h"
 #include "common.h"
 
 using namespace quad_control;
@@ -321,8 +322,11 @@ UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* 
     bool nextChangeDirection;           // 1 if next cell change motion direction
     bool first = true;                  // 1 if first iteration
 
-    geometry_msgs::Accel v;
-    v.angular.x = v.angular.y = v.angular.z = v.linear.z = 0;
+    quad_control::TrajectoryPoint point;
+    point.v.angular.x = point.v.angular.y = point.v.angular.z =
+        point.v.linear.z = point.a.angular.x = point.a.angular.y =
+        point.a.angular.z = 0;
+
     geometry_msgs::PoseStamped pose;
 
     // Get initial cell
@@ -368,23 +372,24 @@ UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* 
             q.position.y += velocity[1] * _navSample;
 
             // Append point to trajectory
-            trajectory.t.push_back(_navSample);
-            trajectory.p.push_back(q);
+            point.t = _navSample;
+            point.p = q;
 
             // Build velocity
-            v.linear.x = velocity[0];
-            v.linear.y = velocity[1];
-            trajectory.v.push_back(v);
+            point.v.linear.x = velocity[0];
+            point.v.linear.y = velocity[1];
 
             // Build acceleration (simple numerical derivation)
-            if(first)
+            if(first){
                 first = false;
-            else{
-                v.linear.x = (velocity[0] - velocityPrev[0]) / _navSample;
-                v.linear.y = (velocity[1] - velocityPrev[1]) / _navSample;
-                trajectory.a.push_back(v);
+                point.a.linear.x = point.a.linear.y = 0;
+            }else{
+                point.a.linear.x = (velocity[0] - velocityPrev[0]) / _navSample;
+                point.a.linear.y = (velocity[1] - velocityPrev[1]) / _navSample;
             }
             velocityPrev = velocity;
+
+            trajectory.points.push_back(point);
 
             // Publish debug path
             if(_showPath){
@@ -403,11 +408,8 @@ UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* 
     }
 
     // Append final entries with null velocity and acceleration, and same position
-    v.linear.x = v.linear.y = 0;
-    trajectory.p.push_back(trajectory.p.back());
-    trajectory.v.push_back(v);
-    trajectory.a.push_back(v);  // Twice, for having the same number of points
-    trajectory.a.push_back(v);
+    point.v.linear.x = point.v.linear.y = 0;
+    trajectory.points.push_back(point);
 
     return q;
 }
@@ -417,8 +419,9 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
         Trajectory& trajectory, nav_msgs::Path& path){
 
     UAVPose q = qs;
-    geometry_msgs::Accel v;
-    v.angular.x = v.angular.y = 0;
+    TrajectoryPoint point;
+    point.v.angular.x = point.v.angular.y = point.a.angular.x =
+        point.a.angular.y = 0;
 
     Vector4d err, ft, ftPrev;
     Vector3d goalDist;
@@ -443,30 +446,30 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
             sample = _sampleAvg;        // Mid-way
         else
             sample = _sampleMin;        // Near obstacles
-        trajectory.t.push_back(sample);
+        point.t = sample;
 
         q = _eulerIntegration(q, ft, sample);
+        point.p = q;
 
         // Accelerations: simple numerical derivation
         if(first)
             first = false;
         else{
-            v.linear.x  = (ft[0]-ftPrev[0]) / sample;
-            v.linear.y  = (ft[1]-ftPrev[1]) / sample;
-            v.linear.z  = (ft[2]-ftPrev[2]) / sample;
-            v.linear.z = gAccCap(v.linear.z);
-            v.angular.z = (ft[3]-ftPrev[3]) / sample;
-            trajectory.a.push_back(v);
+            point.a.linear.x  = (ft[0]-ftPrev[0]) / sample;
+            point.a.linear.y  = (ft[1]-ftPrev[1]) / sample;
+            point.a.linear.z  = (ft[2]-ftPrev[2]) / sample;
+            point.a.linear.z = gAccCap(point.a.linear.z);
+            point.a.angular.z = (ft[3]-ftPrev[3]) / sample;
         }
         ftPrev = ft;
 
         // Velocities
-        v.linear.x = ft[0]; v.linear.y = ft[1]; v.linear.z = ft[2];
-        v.angular.z = ft[3];
-        trajectory.v.push_back(v);
+        point.v.linear.x  = ft[0];
+        point.v.linear.y  = ft[1];
+        point.v.linear.z  = ft[2];
+        point.v.angular.z = ft[3];
 
-        // Positions
-        trajectory.p.push_back(q);
+        trajectory.points.push_back(point);
 
         // Debug path
         if(_showPath){
@@ -496,19 +499,13 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
         }
         prevQ = q;
 
-
     }
 
     // Append final entries with null velocity and acceleration, and same position
-    for(int i=0; i < ceil(steadyTime / _sampleMax); ++i){
-        v.linear.x = v.linear.y = v.linear.z = 0;
-        v.angular.x = v.angular.y = v.angular.z = 0;
-        trajectory.p.push_back(trajectory.p.back());
-        trajectory.v.push_back(v);
-        trajectory.a.push_back(v);
-        // o va qui? :/
-    }
-    trajectory.a.push_back(v); // Twice, for having the same number of points
+    point.v.linear.x = point.v.linear.y = point.v.linear.z = 0;
+    point.v.angular.x = point.v.angular.y = point.v.angular.z = 0;
+    for(int i=0; i < ceil(steadyTime / _sampleMax); ++i)
+        trajectory.points.push_back(point);
 }
 
 

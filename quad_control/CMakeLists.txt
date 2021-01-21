@@ -69,6 +69,7 @@ add_message_files(
   FILES
   PlanRequest.msg
   Trajectory.msg
+  TrajectoryPoint.msg
   UAVPose.msg
 )
 
@@ -169,8 +170,8 @@ target_link_libraries(Controller ${catkin_LIBRARIES})
 add_executable(PController src/control/PControllerNode.cpp src/control/PController.cpp src/control/Controller.cpp)
 target_link_libraries(PController ${catkin_LIBRARIES})
 
-add_executable(plannerTest src/plannerTest.cpp)
-target_link_libraries(plannerTest ${catkin_LIBRARIES})
+add_executable(Manager src/Manager.cpp)
+target_link_libraries(Manager ${catkin_LIBRARIES})
 
 add_library(wind_plugin src/plugin/WindPlugin.cc)
 target_link_libraries(wind_plugin ${catkin_LIBRARIES} ${GAZEBO_LIBRARIES})

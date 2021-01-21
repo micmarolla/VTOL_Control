@@ -112,16 +112,15 @@ void Controller::_getCurrentTrajPoint(){
 
     // Compute steps to simulate until the next trajectory point
     if(_remainingSteps <= 0)
-        _remainingSteps = ceil(_traj.t[_trajStep++] * _rate);
+        _remainingSteps = ceil(_traj.points[_trajStep++].t * _rate);
 
     // Retrieve current trajectory point
-    _dp = _traj.p[_trajStep];
-    _dv = _traj.v[_trajStep];
-    _da = _traj.a[_trajStep];
+    _dp = _traj.points[_trajStep].p;
+    _dv = _traj.points[_trajStep].v;
+    _da = _traj.points[_trajStep].a;
     --_remainingSteps;
 
-    if(_traj.p.size() <= _trajStep || _traj.v.size() <= _trajStep
-            || _traj.a.size() <= _trajStep || _traj.t.size() <= _trajStep){
+    if(_traj.points.size() <= _trajStep){
         ROS_INFO("Trajectory completed!");
         _tracking = false;
         _landing = true;

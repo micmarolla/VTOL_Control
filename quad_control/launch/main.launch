@@ -3,7 +3,7 @@
     <param name="/use_sim_time" value="true"/>
 
     <arg name="mav_name"            default="hummingbird"/>
-    <arg name="world_name"          default="arena"/>
+    <arg name="world_name"          default="arena1"/>
     <arg name="enable_logging"      default="false" />
     <arg name="enable_ground_truth" default="true" />
     <arg name="log_file"            default="$(arg mav_name)"/>
@@ -13,13 +13,13 @@
 
     <!-- The following line causes gzmsg and gzerr messages to be printed to the console
       (even when Gazebo is started through roslaunch) -->
-    <arg name="verbose"       default="false"/>
-    <arg name="rvizconfig"    default="$(find quad_control)/control.rviz"/>
+    <arg name="verbose"     default="false"/>
+    <arg name="rvizconfig"  default="$(find quad_control)/control.rviz"/>
 
-    <arg name="spawn_x"       default="-6"/>
-    <arg name="spawn_y"       default="-6"/>
+    <arg name="spawn_x"     default="0"/>
+    <arg name="spawn_y"     default="-9"/>
 
-    <env name="GAZEBO_MODEL_PATH" value="${GAZEBO_MODEL_PATH}:$(find rotors_gazebo)/models"/>
+    <env name="GAZEBO_MODEL_PATH"    value="${GAZEBO_MODEL_PATH}:$(find rotors_gazebo)/models"/>
     <env name="GAZEBO_RESOURCE_PATH" value="${GAZEBO_RESOURCE_PATH}:$(find rotors_gazebo)/models"/>
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
         <arg name="world_name"  value="$(find quad_control)/worlds/$(arg world_name).world" />
@@ -35,7 +35,7 @@
             <arg name="mav_name"  value="$(arg mav_name)" />
             <arg name="model"     value="$(find rotors_description)/urdf/mav_generic_odometry_sensor.gazebo" />
             <arg name="x"         value="$(arg spawn_x)"/>
-            <arg name="y"         value="$(arg spawn_x)"/>
+            <arg name="y"         value="$(arg spawn_y)"/>
             <arg name="enable_logging"        value="$(arg enable_logging)" />
             <arg name="enable_ground_truth"   value="$(arg enable_ground_truth)" />
             <arg name="log_file"  value="$(arg log_file)"/>
@@ -74,7 +74,9 @@
     </node>
 
     <node pkg="quad_control" type="Manager" name="Manager" output="screen">
+        <param name="rate"          type="double"   value="1000.0"/>
         <param name="planTrajectory"  type="bool"   value="true"/>
+        <param name="plotTrajectory"  type="bool"   value="true"/>
         <param name="x0"            type="double"   value="-9.0"/>
         <param name="y0"            type="double"   value="0.0"/>
         <param name="z0"            type="double"   value="0.0"/>
@@ -88,12 +90,10 @@
 
     <node pkg="quad_control" type="PController" name="PController" output="screen">
         <!-- Mass and inertia parameters are understimated by 10% -->
-        <!--
         <param name="m"             type="double"   value="0.612"/>
         <param name="Ibx"           type="double"   value="0.0063"/>
         <param name="Iby"           type="double"   value="0.0063"/>
         <param name="Ibz"           type="double"   value="0.0108"/>
-        -->
         <param name="kpi"           type="double"   value="1.0"/>
         <param name="kpiv"          type="double"   value="0.0"/>
         <param name="kei"           type="double"   value="1.0"/>
@@ -110,13 +110,11 @@
         <param name="filterBand"    type="double"   value="1.0"/>
     </node>
 
-    <!--
     <group ns="wind">
         <param name="enabled"   type="bool"     value="true"/>
         <param name="model"     type="string"   value="hummingbird"/>
         <param name="link"      type="string"   value="hummingbird/base_link"/>
         <param name="fx"        type="double"   value="1.0"/>
     </group>
-    -->
 
 </launch>
