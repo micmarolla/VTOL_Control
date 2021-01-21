@@ -115,4 +115,8 @@
         <param name="fx"        type="double"   value="1.0"/>
     </group>
 
+    <!-- Record for plotting -->
+    <node pkg="rosbag" type="record" name="rosbag_record"
+        args="/hummingbird/ground_truth/odometry /plotTrajectory" />
+
 </launch>
