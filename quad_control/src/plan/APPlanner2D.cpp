@@ -32,7 +32,7 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _navVel          = _nh.param<double>("navVelocity",     1.0);
     _goalDistAvg     = _nh.param<double>("goalDistAvg",     0.1);
     _goalDistMin     = _nh.param<double>("goalDistMin",     0.05);
-    _navErrTolerance = _nh.param<double>("navErrTolerance", 0.005);
+    _navErrTolerance = _nh.param<double>("navErrTolerance", 0.01);
     _navMaxFt        = _nh.param<double>("navMaxFt",        0.25);
     _navMaxDisp      = _nh.param<double>("navMaxDisp",      0.01);
 
@@ -363,8 +363,8 @@ UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* 
             // Compute velocity
             velocity = err.normalized() * _navVel;
             if(nextChangeDirection && err.norm() < 1){
-                velocity[0] *= abs(err[0]);
-                velocity[1] *= abs(err[1]);
+                velocity[0] *= abs(err[0]) * 5;
+                velocity[1] *= abs(err[1]) * 5;
             }
 
             // Compute displacement

@@ -31,7 +31,7 @@ Controller::Controller() : _nh("~"){
     _Ke << ke*Matrix3d::Identity(), kev*Matrix3d::Identity();
 
     double kpi = _nh.param<double>("kpi", 0.0);
-    double kei = _nh.param<double>("kei", 0.0);
+    double kei = _nh.param<double>("koi", 0.0);
     _Kpi << kpi*Matrix3d::Identity();
     _Kei << kei*Matrix3d::Identity();
 

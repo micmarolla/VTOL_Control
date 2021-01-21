@@ -1,6 +1,6 @@
 <launch>
     <arg name="mav_name" default="hummingbird"/>
-    <arg name="world_name" default="arena1"/> <!-- <=== Change here -->
+    <arg name="world_name"/>
     <arg name="enable_logging" default="false" />
     <arg name="log_file" default="$(arg mav_name)" />
     <arg name="debug" default="false"/>
@@ -20,5 +20,15 @@
         <arg name="gui" value="$(arg gui)" />
         <arg name="verbose" value="$(arg verbose)"/>
     </include>
+
+    <!-- Build octomap -->
+    <node pkg="rosservice" type="rosservice" name="build_octomap"
+        required="true"
+        args="call --wait /world/get_octomap
+        '{bounding_box_origin: {x: 0, y: 0, z: 2.51},
+          bounding_box_lengths: {x: 20, y: 20, z: 5},
+          leaf_size: 0.1,
+          filename: $(find quad_control)/worlds/octo/$(arg world_name).bt
+         }'" />
 
 </launch>

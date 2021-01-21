@@ -11,7 +11,7 @@ PController::PController() : Controller(){
 
     double kp = _nh.param<double>("kp",  100.0);
     _Kp = kp * Matrix3d::Identity();
-    double kd = _nh.param<double>("kd",  100.0);
+    double kd = _nh.param<double>("kpd",  100.0);
     _Kd = kd * Matrix3d::Identity();
 
     double ko = _nh.param<double>("ko",  100.0);

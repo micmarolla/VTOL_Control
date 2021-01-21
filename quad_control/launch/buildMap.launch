@@ -1,0 +1,12 @@
+<launch>
+    <arg name="world_name"/>
+
+    <node pkg="octomap_server" type="octomap_server_node" name="octomap_server_node"
+        required="true"
+        args="$(find quad_control)/worlds/octo/$(arg world_name).bt"/>
+
+    <node pkg="map_server" type="map_saver" name="map_saver" required="true"
+        args="-f $(find quad_control)/worlds/maps/$(arg world_name)
+            map:=/projected_map"/>
+
+</launch>
