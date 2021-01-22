@@ -83,9 +83,9 @@
         <param name="x1"            type="double"   value="-9.0"/>
         <param name="y1"            type="double"   value="0.0"/>
         <param name="z1"            type="double"   value="-1.0"/>
-        <param name="x2"            type="double"   value="6.0"/>
+        <param name="x2"            type="double"   value="-9.0"/>
         <param name="y2"            type="double"   value="0.0"/>
-        <param name="z2"            type="double"   value="-1.0"/>
+        <param name="z2"            type="double"   value="-0.05"/>
     </node>
 
     <node pkg="quad_control" type="PController" name="PController" output="screen">
@@ -106,6 +106,7 @@
         <param name="ko"            type="double"   value="1.0"/>
         <param name="estimator"     type="bool"     value="true"/>
         <param name="filterBand"    type="double"   value="1.0"/>
+        <param name="landing"       type="bool"     value="true"/>
     </node>
 
     <group ns="wind">
@@ -114,9 +115,5 @@
         <param name="link"      type="string"   value="hummingbird/base_link"/>
         <param name="fx"        type="double"   value="1.0"/>
     </group>
-
-    <!-- Record for plotting -->
-    <node pkg="rosbag" type="record" name="rosbag_record"
-        args="/hummingbird/ground_truth/odometry /plotTrajectory" />
 
 </launch>

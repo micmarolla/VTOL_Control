@@ -110,6 +110,7 @@ private:
     int _remainingSteps;                    // ..for the current traj point
 
     bool _waiting, _tracking, _landing;     // Trajectory status
+    bool _willLand;                         // True for landing, false for hovering
 
     UAVPose _dp;                            // Desired pos
     geometry_msgs::Accel _dv;               // Desired linear velocity

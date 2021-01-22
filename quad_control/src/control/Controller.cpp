@@ -42,6 +42,8 @@ Controller::Controller() : _nh("~"){
     _filter.initFilterStep(1/filterRate, k1, k2, Vector2d::Zero(), Vector2d::Zero());
     _filterSteps = _nh.param<int>("filterSteps", 1);
 
+    _willLand = _nh.param<bool>("landing", false);
+
     _epInt = Vector3d::Zero();
     _eoInt = Vector3d::Zero();
 
@@ -123,7 +125,10 @@ void Controller::_getCurrentTrajPoint(){
     if(_traj.points.size() <= _trajStep){
         ROS_INFO("Trajectory completed!");
         _tracking = false;
-        _landing = true;
+        if(_willLand){
+            ROS_INFO("Landing...");
+            _landing = true;
+        }
         return;
     }
 }
@@ -214,6 +219,8 @@ void Controller::run(){
     cmd.force.x = cmd.force.y = 0;
 
     while(ros::ok()){
+        _getCurrentTrajPoint();
+
         if(_waiting){
             if(_trajReady && _odomReady){
                 _waiting = false;
@@ -223,7 +230,6 @@ void Controller::run(){
         }
 
         else if(_tracking){
-            _getCurrentTrajPoint();
             _coreLoop();
         }
 
@@ -233,20 +239,14 @@ void Controller::run(){
             _da.linear.x = _da.linear.y =
                 _da.angular.x = _da.angular.y = _da.angular.z = 0;
 
-            if(_da.linear.z < 0){
-                _da.linear.z += 1e-4;
-                _outerLoop();
-                _deta[0] = _deta[1] = 0;
-                _innerLoop();
-            }else{
-                _uT = 0;
-                _tau = Vector3d::Zero();
-                _landing = false;
-                _waiting = true;
-                _trajReady = false;
-                _odomReady = false;
-                ROS_INFO("Landed.");
-            }
+            _tau = Vector3d::Zero();
+
+            _uT = 0;
+            _landing = false;
+            _waiting = true;
+            _trajReady = false;
+            _odomReady = false;
+            ROS_INFO("Landed.");
         }
 
         // Build command msg and publish it
@@ -260,7 +260,6 @@ void Controller::run(){
         pnt.header.stamp = ros::Time::now();
         pnt.point = _dp.position;
         _pointPub.publish(pnt);
-
 
         r.sleep();
         ros::spinOnce();
