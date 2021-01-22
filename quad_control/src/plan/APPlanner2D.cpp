@@ -23,8 +23,8 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _qdiffMin        = _nh.param<double>("qDiffMin",        0.0);
     _qdiffMax        = _nh.param<double>("qDiffMax",        0.0);
     _gamma           = _nh.param<double>("gamma",           2.0);
-    _p_eps           = _nh.param<double>("p_eps",           0.001);
-    _o_eps           = _nh.param<double>("o_eps",           0.001);
+    _p_eps           = _nh.param<double>("p_eps",           0.01);
+    _o_eps           = _nh.param<double>("o_eps",           0.01);
     _showPath        = _nh.param<bool>  ("showPath",        false);
     _showPathPoints  = _nh.param<bool>  ("showPathPoints",  false);
     _maxVertAcc      = _nh.param<double>("maxVerticalAcc",  5.0);
@@ -423,7 +423,8 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
     point.v.angular.x = point.v.angular.y = point.a.angular.x =
         point.a.angular.y = 0;
 
-    Vector4d err, ft, ftPrev;
+    Vector4d err, ft;
+    Vector4d ftPrev = Vector4d::Zero();
     Vector3d goalDist;
     bool done = false, first = true;
 
@@ -448,17 +449,19 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
             sample = _sampleMin;        // Near obstacles
         point.t = sample;
 
-        q = _eulerIntegration(q, ft, sample);
-        point.p = q;
-
         // Accelerations: simple numerical derivation
         if(first)
             first = false;
         else{
+            // Cap maximum acceleration on z axis
+            point.a.linear.z  = (ft[2]-ftPrev[2]) / sample;
+            if(point.a.linear.z > _maxVertAcc){
+                point.a.linear.z = _maxVertAcc;
+                ft[2] = _maxVertAcc * sample + ftPrev[2];
+            }
+
             point.a.linear.x  = (ft[0]-ftPrev[0]) / sample;
             point.a.linear.y  = (ft[1]-ftPrev[1]) / sample;
-            point.a.linear.z  = (ft[2]-ftPrev[2]) / sample;
-            point.a.linear.z = gAccCap(point.a.linear.z);
             point.a.angular.z = (ft[3]-ftPrev[3]) / sample;
         }
         ftPrev = ft;
@@ -468,6 +471,10 @@ void APPlanner2D::_planSegment(UAVPose qs, UAVPose qg, double steadyTime,
         point.v.linear.y  = ft[1];
         point.v.linear.z  = ft[2];
         point.v.angular.z = ft[3];
+
+        // Compute new position
+        q = _eulerIntegration(q, ft, sample);
+        point.p = q;
 
         trajectory.points.push_back(point);
 
