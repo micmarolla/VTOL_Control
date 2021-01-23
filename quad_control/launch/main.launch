@@ -3,7 +3,7 @@
     <param name="/use_sim_time" value="true"/>
 
     <arg name="mav_name"            default="hummingbird"/>
-    <arg name="world_name"          default="arena1"/> <!-- <== CHANGE HERE -->
+    <arg name="world_name"          default="arena"/> <!-- <== CHANGE HERE -->
     <arg name="enable_logging"      default="false" />
     <arg name="enable_ground_truth" default="true" />
     <arg name="log_file"            default="$(arg mav_name)"/>
@@ -62,12 +62,13 @@
         <param name="rate"          type="double"   value="10"/>
         <param name="showPath"        type="bool"   value="true"/>
         <param name="showPathPoints"  type="bool"   value="true"/>
-        <param name="sampleTimeMin" type="double"   value="0.005"/>
+        <param name="sampleTimeMin" type="double"   value="0.002"/>
         <param name="sampleTimeMax" type="double"   value="0.01"/>
         <param name="etaWall"       type="double"   value="1.2"/>
         <param name="etaObst"       type="double"   value="1.75"/>
         <param name="ka"            type="double"   value="1.0"/>
-        <param name="kr"            type="double"   value="4.0"/>
+        <param name="kr"            type="double"   value="3.0"/>
+        <param name="maxVel"        type="double"   value="0.5"/>
         <param name="navFuncRadius" type="double"   value="3.0"/>
         <param name="navEta"        type="double"   value="0.5"/>
         <param name="navVelocity"   type="double"   value="0.25"/>
@@ -83,9 +84,14 @@
         <param name="x1"            type="double"   value="-9.0"/>
         <param name="y1"            type="double"   value="0.0"/>
         <param name="z1"            type="double"   value="-1.0"/>
+        <!--<param name="yaw1"          type="double"   value="-1.57"/>-->
         <param name="x2"            type="double"   value="6.0"/>
         <param name="y2"            type="double"   value="0.0"/>
         <param name="z2"            type="double"   value="-1.0"/>
+        <!--<param name="yaw2"          type="double"   value="0.0"/>-->
+        <param name="x3"            type="double"   value="6.0"/>
+        <param name="y3"            type="double"   value="0.0"/>
+        <param name="z3"            type="double"   value="-0.05"/>
     </node>
 
     <node pkg="quad_control" type="PController" name="PController" output="screen">
@@ -98,14 +104,13 @@
         <param name="kei"           type="double"   value="1.0"/>
         <param name="k1"            type="double"   value="100.0"/>
         <param name="k2"            type="double"   value="10.0"/>
-        <param name="filterSteps"   type="int"      value="50"/>
         <param name="c0"            type="double"   value="10.0"/>
         <param name="v"             type="double"   value="10.0"/>
-        <param name="kp"            type="double"   value="8.0"/>
-        <param name="kpd"           type="double"   value="2.0"/>
+        <param name="kp"            type="double"   value="7.5"/>
+        <param name="kpd"           type="double"   value="3.0"/>
         <param name="ko"            type="double"   value="1.0"/>
         <param name="estimator"     type="bool"     value="true"/>
-        <param name="filterBand"    type="double"   value="1.0"/>
+        <param name="landing"       type="bool"     value="true"/>
     </node>
 
     <group ns="wind">
@@ -116,7 +121,7 @@
     </group>
 
     <!-- Record for plotting -->
-    <node pkg="rosbag" type="record" name="rosbag_record"
-        args="/hummingbird/ground_truth/odometry /plotTrajectory" />
+    <!-- <node pkg="rosbag" type="record" name="rosbag_record"
+        args="/hummingbird/ground_truth/odometry /plotTrajectory" />-->
 
 </launch>

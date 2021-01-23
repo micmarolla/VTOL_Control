@@ -64,13 +64,15 @@ void Manager::requestPlanning(){
 
     quad_control::UAVPose q;
 
+    double prevYaw = 0;
     int i = 0;
     while(_nh.hasParam("x"+std::to_string(i)) || _nh.hasParam("y"+std::to_string(i))
             || _nh.hasParam("z"+std::to_string(i)) || _nh.hasParam("yaw"+std::to_string(i))){
         q.position.x = _nh.param<double>("x"+std::to_string(i), 0.0);
         q.position.y = _nh.param<double>("y"+std::to_string(i), 0.0);
         q.position.z = _nh.param<double>("z"+std::to_string(i), 0.0);
-        q.yaw        = _nh.param<double>("yaw"+std::to_string(i), 0.0);
+        q.yaw        = _nh.param<double>("yaw"+std::to_string(i), prevYaw);
+        prevYaw = q.yaw;
         if(i > 0){
             double t = _nh.param<double>("steadyTime"+std::to_string(i), 0.0);
             _req.steadyTime.push_back(t);

@@ -14,7 +14,8 @@ LP2Filter<T>::~LP2Filter(){
 }
 
 template <typename T>
-void LP2Filter<T>::filter(T* signal, unsigned int length, double sampleTime, double k1, double k2, T cond1, T cond2){
+void LP2Filter<T>::filter(T* signal, unsigned int length, double sampleTime,
+        double k1, double k2, T cond1, T cond2, int steps){
     // Clear old signals
     delete _f;
     delete _d;
@@ -28,12 +29,7 @@ void LP2Filter<T>::filter(T* signal, unsigned int length, double sampleTime, dou
     _dd = new T[length];
 
     // Initial conditions and parameters
-    _k1 = k1;
-    _k2 = k2;
-    _init1 = cond1;
-    _init2 = cond2;
-    _t = sampleTime;
-    _first = true;
+    initFilterStep(sampleTime, k1, k2, cond1, cond2, steps);
 
     // Filter
     for(int i=0; i < length; ++i){
@@ -69,10 +65,12 @@ void LP2Filter<T>::reset(){
 
 
 template <typename T>
-void LP2Filter<T>::initFilterStep(double sampleTime, double k1, double k2, T cond1, T cond2){
+void LP2Filter<T>::initFilterStep(double sampleTime, double k1, double k2,
+        T cond1, T cond2, int steps){
     setSampleTime(sampleTime);
     setBandwidth(k1, k2);
     setInitCond(cond1, cond2);
+    _steps = steps;
     reset();
 }
 
@@ -101,8 +99,8 @@ void LP2Filter<T>::filterStep(T signal){
 }
 
 template <typename T>
-void LP2Filter<T>::filterSteps(T signal, int steps){
-    if(steps > 0)
-        for (int i=0; i<steps; ++i)
+void LP2Filter<T>::filterSteps(T signal){
+    if(_steps > 0)
+        for (int i=0; i < _steps; ++i)
             this->filterStep(signal);
 }

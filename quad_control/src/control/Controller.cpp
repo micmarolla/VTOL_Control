@@ -38,9 +38,9 @@ Controller::Controller() : _nh("~"){
     // Filtering params
     double k1 = _nh.param<double>("k1", 100.0);
     double k2 = _nh.param<double>("k2", 100.0);
-    double filterRate = _nh.param<double>("filterRate", 100.0);
-    _filter.initFilterStep(1/filterRate, k1, k2, Vector2d::Zero(), Vector2d::Zero());
-    _filterSteps = _nh.param<int>("filterSteps", 1);
+    double filterRate = _nh.param<double>("filterRate", 50000.0);
+    _filter.initFilterStep(1/filterRate, k1, k2, Vector2d::Zero(),
+        Vector2d::Zero(), filterRate/_rate);
 
     _willLand = _nh.param<bool>("landing", false);
 
@@ -117,18 +117,17 @@ void Controller::_getCurrentTrajPoint(){
         _remainingSteps = ceil(_traj.points[_trajStep++].t * _rate);
 
     // Retrieve current trajectory point
-    _dp = _traj.points[_trajStep].p;
-    _dv = _traj.points[_trajStep].v;
-    _da = _traj.points[_trajStep].a;
-    --_remainingSteps;
+    if(_trajStep < _traj.points.size()){
+        _dp = _traj.points[_trajStep].p;
+        _dv = _traj.points[_trajStep].v;
+        _da = _traj.points[_trajStep].a;
+        --_remainingSteps;
 
-    if(_traj.points.size() <= _trajStep){
+    }else{
         ROS_INFO("Trajectory completed!");
         _tracking = false;
-        if(_willLand){
-            ROS_INFO("Landing...");
+        if(_willLand)
             _landing = true;
-        }
         return;
     }
 }
@@ -186,7 +185,7 @@ void Controller::_outerLoop(){
 
 void Controller::_innerLoop(){
     // Compute derivatives of orientation
-    this->_filter.filterSteps(_deta.head<2>(), _filterSteps);
+    this->_filter.filterSteps(_deta.head<2>());
     _deta_d << _filter.lastFirst(), _dv.angular.z;
     _deta_dd << _filter.lastSecond(), _da.angular.z;
 

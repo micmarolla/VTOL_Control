@@ -18,10 +18,10 @@ PController::PController() : Controller(){
     _Ko = ko * Matrix3d::Identity();
     _Do = _Ko / _v;
 
-    double band = _nh.param<double>("filterBand", 10.0);
-    double filterRate = _nh.param<double>("estFilterRate", 100.0);
-    _estFilterSteps   = _nh.param<int>("estFilterSteps", 10);
-    _estFilter.initFilterStep(1/filterRate, band, 0, Vector6d::Zero(), Vector6d::Zero());
+    double band = _nh.param<double>("estFilterBand", 1.0);
+    double filterRate = _nh.param<double>("estFilterRate", 10000.0);
+    _estFilter.initFilterStep(1/filterRate, band, 0, Vector6d::Zero(),
+        Vector6d::Zero(), filterRate/_rate);
 
     _q_prev = Vector6d::Zero();
     _Fe << Vector6d::Zero();
@@ -45,7 +45,7 @@ void PController::_estimateWrench(){
     Vector6d tempFe = _Fe + _c0 * (q-_q_prev) - (_c0*_Fe + _c0*X)/_rate;
 
     // Filter
-    this->_estFilter.filterSteps(tempFe, _estFilterSteps);
+    this->_estFilter.filterSteps(tempFe);
     _Fe << _estFilter.lastFirst();
 
     _q_prev = q;

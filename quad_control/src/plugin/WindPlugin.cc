@@ -6,8 +6,6 @@
 #include <gazebo/physics/physics.hh>
 #include <ignition/math/Vector3.hh>
 
-#include "quad_control/wind.h"
-
 using namespace std;
 
 namespace gazebo{

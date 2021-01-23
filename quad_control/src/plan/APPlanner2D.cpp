@@ -28,6 +28,7 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _showPath        = _nh.param<bool>  ("showPath",        false);
     _showPathPoints  = _nh.param<bool>  ("showPathPoints",  false);
     _maxVertAcc      = _nh.param<double>("maxVerticalAcc",  5.0);
+    _maxVel          = abs(_nh.param<double>("maxVel",      0.5));
     _navFuncRadius   = _nh.param<double>("navFuncRadius",   3.0);
     _navVel          = _nh.param<double>("navVelocity",     1.0);
     _goalDistAvg     = _nh.param<double>("goalDistAvg",     0.1);
@@ -108,7 +109,7 @@ UAVPose APPlanner2D::_eulerIntegration(UAVPose q, Vector4d ft, double sampleTime
 
 
 Vector4d APPlanner2D::_computeForce(UAVPose q, Vector4d e){
-    Vector4d fa, fr;
+    Vector4d fa, fr, ft;
 
     // Attractive potentials
     if (e.norm() <= 1)
@@ -118,9 +119,13 @@ Vector4d APPlanner2D::_computeForce(UAVPose q, Vector4d e){
 
     // Repulsive potentials
     fr = _computeRepulsiveForce(q.position.x, q.position.y);
-    _obstacleNearby = fr.norm() != 0;
+    _obstacleNearby = (fr.norm() != 0);
 
-    return fa + fr;
+    ft = fa + fr;
+    if(ft.norm() > _maxVel)
+        ft *= _maxVel / ft.norm();
+
+    return ft;
 }
 
 

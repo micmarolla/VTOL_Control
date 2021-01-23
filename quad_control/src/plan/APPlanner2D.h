@@ -162,6 +162,7 @@ private:
     double _qdiffMin, _qdiffMax;    // Limits on q displacement for each step
     double _goalDistMin, _goalDistAvg;  // Distance from goal limits that activate displacement capping
     double _maxVertAcc; // Maximum vertical acceleration
+    double _maxVel;     // Maximum velocity
 
     bool _showPath;     // If true, publish nav_msgs::Path debug msg
     bool _showPathPoints;   // If true, publish path segments' extremes

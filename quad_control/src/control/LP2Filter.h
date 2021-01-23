@@ -41,7 +41,7 @@ public:
      *  - cond1, cond2: initial conditions
      */
     void filter(T* signal, unsigned int length, double sampleTime, double k1,
-            double k2, T cond1, T cond2);
+            double k2, T cond1, T cond2, int steps=1);
 
     // Set initial condition
     void setInitCond(T cond1, T cond2);
@@ -50,7 +50,8 @@ public:
     void setBandwidth(double k1, double k2);
 
     // Set initial condition and bandwidth
-    void initFilterStep(double sampleTime, double k1, double k2, T cond1, T cond2);
+    void initFilterStep(double sampleTime, double k1, double k2, T cond1,
+        T cond2, int steps=1);
 
     // Set filter sample time
     void setSampleTime(double t);
@@ -71,7 +72,7 @@ public:
      * Filter signal value 'steps' times.
      * Greater steps values leads to smoother outputs.
      */
-    void filterSteps(T signal, int steps);
+    void filterSteps(T signal);
 
 
 private:
@@ -83,6 +84,7 @@ private:
     T _intOut2;                 // Output of the second integrator
     double _k1, _k2;            // Bandwidths
     double _t;                  // Sample time
+    int _steps;
     bool _first;                // True if it's the first computation
 
 };
