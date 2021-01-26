@@ -14,6 +14,7 @@ using namespace Eigen;
 
 Controller::Controller() : _nh("~"){
     _rate = _nh.param<double>("rate", 1000.0);
+    _plotTrajectory = _nh.param<bool>("plotTrajectory", false);
 
     // Mass and inertia params. Default values are for AscTec Hummingbird UAV
     _m = _nh.param<double>("m", 0.68);
@@ -63,6 +64,7 @@ Controller::Controller() : _nh("~"){
     _odomSub = _nh.subscribe("/hummingbird/odometryNED", 0, &Controller::odomReceived, this);
     _pub = _nh.advertise<geometry_msgs::Wrench>("/hummingbird/command/wrenchNED", 0);
     _pointPub = _nh.advertise<geometry_msgs::PointStamped>("/trajectoryPoint", 0);
+    _trajPub = _nh.advertise<quad_control::TrajectoryPoint>("/plotTrajectory", 0, true);
 }
 
 
@@ -122,6 +124,7 @@ void Controller::_getCurrentTrajPoint(){
         _dv = _traj.points[_trajStep].v;
         _da = _traj.points[_trajStep].a;
         --_remainingSteps;
+        _trajPub.publish(_traj.points[_trajStep]);
 
     }else{
         ROS_INFO("Trajectory completed!");

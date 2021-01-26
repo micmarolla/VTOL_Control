@@ -101,6 +101,7 @@ private:
     ros::Subscriber _odomSub;               // Odometry
     ros::Publisher _pub;                    // Command wrench
     ros::Publisher _pointPub;               // Current trajectory point
+    ros::Publisher _trajPub;                // Current desired pose
 
     Matrix<double,3,6> _Kp, _Ke;            // Proportional gains
 
@@ -123,6 +124,8 @@ private:
 
     LP2Filter<Vector2d> _filter;            // Low-pass 2nd order filter
     int _filterSteps;           // Number of filtering steps for each new value
+
+    bool _plotTrajectory;       // Plot the current desired pos
 
 
     /*

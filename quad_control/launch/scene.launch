@@ -1,6 +1,6 @@
 <launch>
     <arg name="mav_name" default="hummingbird"/>
-    <arg name="world_name" default="arena1"/> <!-- <=== Change here -->
+    <arg name="world_name" default="arena"/> <!-- <=== Change here -->
     <arg name="enable_logging" default="false" />
     <arg name="log_file" default="$(arg mav_name)" />
     <arg name="debug" default="false"/>

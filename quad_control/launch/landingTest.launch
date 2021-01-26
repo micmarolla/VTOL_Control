@@ -3,7 +3,7 @@
     <param name="/use_sim_time" value="true"/>
 
     <arg name="mav_name"            default="hummingbird"/>
-    <arg name="world_name"          default="arena1"/> <!-- <== CHANGE HERE -->
+    <arg name="world_name"          default="arena"/> <!-- <== CHANGE HERE -->
     <arg name="enable_logging"      default="false" />
     <arg name="enable_ground_truth" default="true" />
     <arg name="log_file"            default="$(arg mav_name)"/>

@@ -84,17 +84,18 @@
         <param name="x1"            type="double"   value="-9.0"/>
         <param name="y1"            type="double"   value="0.0"/>
         <param name="z1"            type="double"   value="-1.0"/>
-        <!--<param name="yaw1"          type="double"   value="-1.57"/>-->
+        <param name="yaw1"          type="double"   value="-1.57"/>
         <param name="x2"            type="double"   value="6.0"/>
         <param name="y2"            type="double"   value="0.0"/>
         <param name="z2"            type="double"   value="-1.0"/>
-        <!--<param name="yaw2"          type="double"   value="0.0"/>-->
+        <param name="yaw2"          type="double"   value="0.0"/>
         <param name="x3"            type="double"   value="6.0"/>
         <param name="y3"            type="double"   value="0.0"/>
         <param name="z3"            type="double"   value="-0.05"/>
     </node>
 
     <node pkg="quad_control" type="PController" name="PController" output="screen">
+        <param name="plotTrajectory"  type="bool"   value="true"/>
         <!-- Mass and inertia parameters are understimated by 10% -->
         <param name="m"             type="double"   value="0.612"/>
         <param name="Ibx"           type="double"   value="0.0063"/>
@@ -122,6 +123,7 @@
 
     <!-- Record for plotting -->
     <!-- <node pkg="rosbag" type="record" name="rosbag_record"
-        args="/hummingbird/ground_truth/odometry /plotTrajectory" />-->
+        args="/hummingbird/odometryNED /plotTrajectory
+                /hummingbird/command/wrenchNED" /> -->
 
 </launch>

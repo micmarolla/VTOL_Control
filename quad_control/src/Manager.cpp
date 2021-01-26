@@ -4,12 +4,9 @@
 Manager::Manager() : _nh("~"){
     _rate      = _nh.param<double>("rate", 100.0);
     _toPlan    = _nh.param<bool>("planTrajectory", false);
-    _trajToPub = _nh.param<bool>("plotTrajectory", false);
 
     _mapSub  = _nh.subscribe("/map", 0, &Manager::_map_cb, this);
-    _trajSub = _nh.subscribe("/trajectory", 0, &Manager::_traj_cb, this);
     _planPub = _nh.advertise<quad_control::PlanRequest>("/planRequest", 0, true);
-    _trajPub = _nh.advertise<quad_control::TrajectoryPoint>("/plotTrajectory", 0, true);
 
     _planned = false;
     _trajPublishing = false;
@@ -24,36 +21,6 @@ void Manager::_map_cb(nav_msgs::OccupancyGridConstPtr data){
     if(!_mapReady){
         _req.map = *data;
         _mapReady = true;
-    }
-}
-
-void Manager::_traj_cb(quad_control::TrajectoryConstPtr data){
-    _traj = *data;
-    _trajPublishing = true;
-
-    if(_trajToPub)
-        ROS_INFO("Manager: publishing trajectory for plotting...");
-}
-
-
-void Manager::pubTrajectoryForPlotting(){
-    if(!_trajToPub || !_trajPublishing)
-        return;
-
-    float perc = 100 * _currTrajPoint / _traj.points.size();
-    if(perc >= _trajPerc){
-        ROS_INFO_STREAM("Manager: trajectory published at " << _trajPerc << "%");
-        _trajPerc += 10;
-    }
-
-    quad_control::TrajectoryPoint pt = _traj.points[_currTrajPoint++];
-    _trajPub.publish(pt);
-
-    if(_currTrajPoint >= _traj.points.size()){
-        _currTrajPoint = 0;
-        _trajPerc = 10;
-        _trajPublishing = false;
-        ROS_INFO("Manager: finished publishing trajectory for plotting.");
     }
 }
 
@@ -99,10 +66,6 @@ void Manager::run(){
         // Plan trajectory
         if(_toPlan && !_planned && _mapReady)
             requestPlanning();
-
-        // Publish trajectory for plotting
-        if(_planned && _trajToPub && _trajPublishing)
-            pubTrajectoryForPlotting();
 
         // Do something else?
         // ...
