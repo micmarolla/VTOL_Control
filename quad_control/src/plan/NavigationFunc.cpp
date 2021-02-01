@@ -2,9 +2,6 @@
 #include <ros/console.h>
 #include "common.h"
 
-using namespace std;
-
-
 NavigationFunc::NavigationFunc(){
     _map = 0;
     _nav = 0;
@@ -21,23 +18,38 @@ NavigationFunc::~NavigationFunc(){
         delete _map;
 }
 
-void NavigationFunc::setMap(nav_msgs::OccupancyGrid &grid){
-    this->setMap(&grid.data[0], grid.info.width, grid.info.height, true);
+
+void NavigationFunc::setMap(nav_msgs::OccupancyGrid &grid, float res){
+    this->setMap(&grid.data[0], grid.info.width, grid.info.height,
+        ceil(res / grid.info.resolution), true);
 }
 
-void NavigationFunc::setMap(int8_t *map, int w, int h, bool copyMap){
-    int size = w*h;
 
+void NavigationFunc::setMap(int8_t *map, int _w, int _h, int ratio, bool copyMap){
     if(_copied)
         delete this->_map;
 
-    // Retrieve the new map
-    if(copyMap){
-        this->_map = new int8_t[size];
-        for (int i=0; i<size; ++i)
-            this->_map[i] = map[i];
-    }else
-        this->_map = map;
+    int w = _w / ratio;
+    int h = _h / ratio;
+    int size = w * h;
+
+    this->_map = new int8_t[size];
+
+    // Build map with the given resolution ratio
+    int x = 0, y = 0;
+    int8_t max = 0;
+    for (int i=0; i < size; ++i){
+        x = i / w;
+        y = i % w;
+        max = 0;
+
+        for(int xx = x*ratio; xx < (x+1)*ratio && xx < _h; ++xx)
+            for(int yy = y*ratio; yy < (y+1)*ratio  && yy < _w; ++yy)
+                if (map[xx*_w+yy] > max)
+                    max = map[xx*_w+yy];
+        this->_map[i] = max;
+    }
+
     _copied = copyMap;
 
     // Clear navigation map
@@ -203,7 +215,7 @@ const int* NavigationFunc::scan(int goalX, int goalY, int eta, int rx, int ry){
 }
 
 
-queue<int>* NavigationFunc::getPath(int rx, int ry){
+std::queue<int>* NavigationFunc::getPath(int rx, int ry){
     if(rx == -1 && ry == -1 && !_path.empty())
         return &this->_path;
 

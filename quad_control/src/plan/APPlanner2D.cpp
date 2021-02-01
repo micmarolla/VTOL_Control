@@ -28,7 +28,8 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _showPath        = _nh.param<bool>  ("showPath",        false);
     _showPathPoints  = _nh.param<bool>  ("showPathPoints",  false);
     _maxVertAcc      = _nh.param<double>("maxVerticalAcc",  5.0);
-    _maxVel          = abs(_nh.param<double>("maxVel",      0.5));
+    _maxVel_p        = abs(_nh.param<double>("maxVel_p",    0));
+    _maxVel_o        = abs(_nh.param<double>("maxVel_o",    0));
     _navFuncRadius   = _nh.param<double>("navFuncRadius",   3.0);
     _navVel          = _nh.param<double>("navVelocity",     1.0);
     _goalDistAvg     = _nh.param<double>("goalDistAvg",     0.1);
@@ -36,6 +37,7 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _navErrTolerance = _nh.param<double>("navErrTolerance", 0.01);
     _navMaxFt        = _nh.param<double>("navMaxFt",        0.25);
     _navMaxDisp      = _nh.param<double>("navMaxDisp",      0.01);
+    _navRatio        = _nh.param<int>   ("navRatio",          1);
 
 
     if(_nh.hasParam("sampleTime")){
@@ -121,9 +123,18 @@ Vector4d APPlanner2D::_computeForce(UAVPose q, Vector4d e){
     fr = _computeRepulsiveForce(q.position.x, q.position.y);
     _obstacleNearby = (fr.norm() != 0);
 
+    // Total force
     ft = fa + fr;
-    if(ft.norm() > _maxVel)
-        ft *= _maxVel / ft.norm();
+
+    Vector3d ft_p = ft.head<3>();
+    if(_maxVel_p > 0 && ft_p.norm() > _maxVel_p)
+        ft_p *= _maxVel_p / ft_p.norm();
+
+    double ft_o = ft[3];
+    if(_maxVel_o > 0 && abs(ft_o) > _maxVel_o)
+        ft_o = _maxVel_o * ((ft_o > 0) ? 1 : -1);
+
+    ft << ft_p, ft_o;
 
     return ft;
 }
@@ -290,19 +301,28 @@ UAVPose APPlanner2D::_handleLocalMinima(UAVPose q, UAVPose qg,
     ROS_INFO("Generating submap...");
     int8_t* submap = _mapAnalyzer.generateSubmap(subOx, subOy, subW, subH);
     NavigationFunc nf;
-    nf.setMap(submap, subW, subH);
+    nf.setMap(submap, subW, subH, _navRatio);
+
+    // Quantities referred to nav func resolution
+    subX  = subX  / _navRatio;
+    subY  = subY  / _navRatio;
+    subW  = subW  / _navRatio;
+    subH  = subH  / _navRatio;
+    subOx = subOx / _navRatio;
+    subOy = subOy / _navRatio;
+    qgx   = qgx   / _navRatio;
+    qgy   = qgy   / _navRatio;
 
     // Find the submap point nearest to the actual goal
     ROS_INFO("Finding subgoal...");
-    int subGoalX, subGoalY;
     int subGoal = _findNavSubGoal(subOx, subOy, subW, subH, qgx, qgy);
-    subGoalX = subGoal / subW;
-    subGoalY = subGoal % subW;
+    int subGoalX = subGoal / subW;
+    int subGoalY = subGoal % subW;
 
     // Build navigation function (lazy build, i.e., q is specified)
     ROS_INFO("Building navigation function...");
 
-    const int* nav = nf.scan(subGoalX, subGoalY, _navEta/_mapInfo.resolution, subX, subY);
+    const int* nav = nf.scan(subGoalX, subGoalY, _navEta/_mapInfo.resolution/_navRatio, subX, subY);
     std::queue<int>* nfPath = nf.getPath();
 
     return _interpNavTraj(q, qx, qy, nfPath, subOx, subOy, subW, subH, trajectory, path);
@@ -343,9 +363,9 @@ UAVPose APPlanner2D::_interpNavTraj(UAVPose q, int qx, int qy, std::queue<int>* 
         currCell = nfPath->front();
         nfPath->pop();
         cellX = currCell / subW + subOx;
-        nextX = (cellX+0.5) * _mapInfo.resolution + _mapInfo.origin.position.x;
+        nextX = (cellX+0.5) * _mapInfo.resolution * _navRatio + _mapInfo.origin.position.x;
         cellY = currCell % subW + subOy;
-        nextY = (cellY+0.5) * _mapInfo.resolution + _mapInfo.origin.position.y;
+        nextY = (cellY+0.5) * _mapInfo.resolution * _navRatio + _mapInfo.origin.position.y;
 
         // The next cell will change direction?
         nextChangeDirection = true;

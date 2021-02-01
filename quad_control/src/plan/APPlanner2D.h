@@ -162,7 +162,7 @@ private:
     double _qdiffMin, _qdiffMax;    // Limits on q displacement for each step
     double _goalDistMin, _goalDistAvg;  // Distance from goal limits that activate displacement capping
     double _maxVertAcc; // Maximum vertical acceleration
-    double _maxVel;     // Maximum velocity
+    double _maxVel_p, _maxVel_o;    // Maximum linear and angular velocity
 
     bool _showPath;     // If true, publish nav_msgs::Path debug msg
     bool _showPathPoints;   // If true, publish path segments' extremes
@@ -174,6 +174,7 @@ private:
     double _navVel;         // Velocity while in navigation map
     double _navEta;         // Radius of obstacle isotropic expansion for navfunc
     double _navSample;      // Sample time used for navfunc
+    int _navRatio;          // Navfunc / grid cell resolution ratio
     double _navErrTolerance;        // Error tolerance when building nav path
     double _navMaxFt, _navMaxDisp;  // Max force and displacement to recognize a local minimum
 

@@ -18,8 +18,11 @@ public:
 
     /*
      * Set the environment map.
+     * If res = 0, the same resolution as grid is used; otherwise, the
+     * resolution nearest to res is used such that the ratio between res and
+     * grid resolution is an integer.
      */
-    void setMap(nav_msgs::OccupancyGrid &grid);
+    void setMap(nav_msgs::OccupancyGrid &grid, float res=0);
 
     /*
      * Set the environment map.
@@ -28,11 +31,12 @@ public:
      *         nav_msgs/OccupancyGrid: the data are stored in the map vector
      *         considering the (0,0) element in the bottom-left corner.
      *  - w, h: map's width and height
+     *  - ratio: ratio between navigation function resolution and map resolution
      *  - copyMap: if true, the map data is copied inside this object;
      *      otherwise, the content is just pointed, and memory management is
      *      not handled by this object.
      */
-    void setMap(int8_t *map, int w, int h, bool copyMap=false);
+    void setMap(int8_t *map, int w, int h, int ratio=1, bool copyMap=false);
 
     /*
      * Return true if a map has been loaded, false else.
