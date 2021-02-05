@@ -38,6 +38,8 @@ APPlanner2D::APPlanner2D() : _nh("~"){
     _navMaxFt        = _nh.param<double>("navMaxFt",        0.25);
     _navMaxDisp      = _nh.param<double>("navMaxDisp",      0.01);
     _navRatio        = _nh.param<int>   ("navRatio",          1);
+    if(_navRatio < 1)
+        _navRatio = 1;      // Fix ratio if the user set a negative value
 
 
     if(_nh.hasParam("sampleTime")){
