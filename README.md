@@ -1,4 +1,4 @@
-# FSR Technical project
+# Motion planning and control for VTOL UAV 
 This is the technical project for the Field and Service Robotics exam, at
 University Federico II of Naples.
 
